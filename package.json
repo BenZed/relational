@@ -1,6 +1,6 @@
 {
     "name": "@benzed/relational",
-    "description": "Mixins that behave basically like runtime interfaces",
+    "description": "Trait for creating heirarchical structures.",
     "main": "./lib",
     "version": "1.0.0",
     "publishConfig": {
