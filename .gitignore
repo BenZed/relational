@@ -1,0 +1,26 @@
+# Build 
+lib
+*.tsbuildinfo
+
+# Npm
+node_modules/
+.npm
+*.tgz
+
+# Test
+coverage
+
+# Environment
+.env*
+
+# Logs
+logs
+*.log
+npm-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# OSX
+.DS_Store
+
+# Temp
+node*

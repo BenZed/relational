@@ -1,0 +1,34 @@
+{
+
+    "include": ["src"],
+    "exclude": [
+        "src/**/*.test.ts"
+    ],
+
+    "compilerOptions": {
+
+        "outDir": "./lib",
+
+        // Build Options
+        "build": true,
+        "target": "ES2022",
+        "module": "CommonJS",
+        "declaration": true,
+
+        // @internal access modifier
+        "stripInternal": true,
+
+        // Search under node_modules for non-relative imports.
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+
+        "strict": true,
+        "noImplicitOverride": true, // Thought this was default in strict mode
+
+        "sourceMap": true,
+        "skipLibCheck": true,
+        "skipDefaultLibCheck": true,
+
+        "esModuleInterop": true
+    }
+}
