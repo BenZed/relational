@@ -2,7 +2,7 @@
     "name": "@benzed/relational",
     "description": "Trait for creating heirarchical structures.",
     "main": "./lib",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publishConfig": {
         "access": "public"
     },

@@ -11,3 +11,5 @@ export {
     HasRelational,
     AssertRelational
 } from './find'
+
+export * from './relationals'
