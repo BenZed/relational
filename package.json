@@ -42,8 +42,9 @@
     "dependencies": {
         "@benzed/callable": "^1.0.0",
         "@benzed/each": "^1.0.0",
+        "@benzed/immutable": "^4.0.0",
         "@benzed/traits": "^1.0.0",
-        "@benzed/types": "^1.0.2",
+        "@benzed/types": "^1.4.0",
         "@benzed/util": "^4.0.0"
     }
 }
