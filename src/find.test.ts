@@ -1,11 +1,12 @@
 import { fail } from '@benzed/util'
-import { Traits } from '@benzed/traits'
+import { Traits, trait } from '@benzed/traits'
 
 import { test, expect, describe } from '@jest/globals'
 
-import { Find, FindFlag } from './find'
+import { Find, FindFlag, FindRelational } from './find'
 import { Relational } from './relational'
 import { PublicRelational } from './relationals'
+import { isFunc, isShape } from '@benzed/types'
 
 //// Setup ////
 
@@ -169,5 +170,101 @@ describe('Assert', () => {
         expect(() => find.inDescendants(fail, customErrorMessage)).toThrow(
             customErrorMessage
         )
+    })
+})
+
+describe('type signature', () => {
+    //
+    class Entity extends Traits(Relational) {
+        constructor() {
+            super()
+            return Relational.apply(this)
+        }
+        //
+        get find(): FindRelational {
+            return Relational.find(this)
+        }
+    }
+
+    test('objects do not need to be extended to be found', () => {
+        class Group extends Entity {
+            one = new Entity()
+
+            two = new Entity()
+
+            three = new Entity()
+        }
+
+        const group = new Group()
+
+        expect(Symbol.hasInstance in Entity).toBe(true)
+
+        const entities = group.find.all(Entity)
+        expect(entities).toEqual([group.one, group.two, group.three])
+
+        const entity = group.find(Entity)
+        entity satisfies Entity | undefined
+        expect(entity).toBeInstanceOf(Entity)
+    })
+
+    test('can search for non-relationals', () => {
+        @trait
+        abstract class Describer {
+            static readonly is = isShape<Describer>({
+                describe: isFunc
+            })
+
+            abstract describe(): string
+        }
+
+        class DescribedEntity extends Traits.add(Entity, Describer) {
+            describe(): string {
+                return `The path to this ${
+                    this.constructor.name
+                } is ${Relational.getPath(this)}`
+            }
+        }
+
+        class Collection extends Entity {
+            d1 = new DescribedEntity()
+            d2 = new DescribedEntity()
+            e1 = new Entity()
+        }
+
+        const collection = new Collection()
+
+        const [describer] = collection.find.all(Describer)
+
+        expect(describer).toBeInstanceOf(Describer)
+        expect(describer).toBeInstanceOf(Relational)
+        describer satisfies Describer & Relational
+        expect(describer.describe()).toEqual(
+            `The path to this ${DescribedEntity.name} is d1`
+        )
+    })
+
+    test('optional discrimination', () => {
+        class DuplexEntity extends Entity {
+            left = new Entity()
+            right = new Entity()
+        }
+
+        class Entities extends Entity {
+            d1 = new DuplexEntity()
+            d2 = new DuplexEntity()
+            s1 = new Entity()
+
+            get findDupes(): FindRelational<DuplexEntity> {
+                return Relational.find(this)
+            }
+        }
+
+        const entities = new Entities()
+
+        expect(entities.findDupes(entities.d1)).toBe(entities.d1)
+        expect(entities.findDupes(DuplexEntity)).toBe(entities.d1)
+
+        // @ts-expect-error not allowed
+        entities.findDupes(Entity)
     })
 })
