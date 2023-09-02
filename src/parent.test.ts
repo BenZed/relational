@@ -2,7 +2,7 @@ import { nil } from '@benzed/types'
 import { Relational } from './relational'
 import { getParent } from './parent'
 
-import { test, describe, expect } from '@jest/globals'
+import { test, expect } from '@jest/globals'
 import Traits from '@benzed/traits'
 
 //// Setup ////
@@ -42,46 +42,44 @@ const grandPa = new (class GrandPa extends Person {
 
 //// Tests ////
 
-describe(getParent.name, () => {
-    test('grandPa has no parent', () => {
-        expect(getParent(grandPa)).toBe(nil)
-    })
+test('grandPa has no parent', () => {
+    expect(getParent(grandPa)).toBe(nil)
+})
 
-    test('mom parent is grandPa', () => {
-        expect(getParent(grandPa.mom)).toBe(grandPa)
-    })
+test('mom parent is grandPa', () => {
+    expect(getParent(grandPa.mom)).toBe(grandPa)
+})
 
-    test('you parent is mom', () => {
-        expect(getParent(grandPa.mom.you)).toBe(grandPa.mom)
-    })
+test('you parent is mom', () => {
+    expect(getParent(grandPa.mom.you)).toBe(grandPa.mom)
+})
 
-    test('son parent is you', () => {
-        expect(getParent(grandPa.mom.you.son)).toBe(grandPa.mom.you)
-    })
+test('son parent is you', () => {
+    expect(getParent(grandPa.mom.you.son)).toBe(grandPa.mom.you)
+})
 
-    test('grand daughter parent is son', () => {
-        expect(getParent(grandPa.mom.you.son.grandDaughter)).toBe(
-            grandPa.mom.you.son
-        )
-    })
+test('grand daughter parent is son', () => {
+    expect(getParent(grandPa.mom.you.son.grandDaughter)).toBe(
+        grandPa.mom.you.son
+    )
+})
 
-    test('grandSon parent is daughter', () => {
-        expect(getParent(grandPa.mom.you.son.grandDaughter.greatGrandSon)).toBe(
-            grandPa.mom.you.son.grandDaughter
-        )
-    })
+test('grandSon parent is daughter', () => {
+    expect(getParent(grandPa.mom.you.son.grandDaughter.greatGrandSon)).toBe(
+        grandPa.mom.you.son.grandDaughter
+    )
+})
 
-    test('sister parent is mom', () => {
-        expect(getParent(grandPa.mom.sister)).toBe(grandPa.mom)
-    })
+test('sister parent is mom', () => {
+    expect(getParent(grandPa.mom.sister)).toBe(grandPa.mom)
+})
 
-    test('cousin parent is sister', () => {
-        expect(getParent(grandPa.mom.sister.cousin)).toBe(grandPa.mom.sister)
-    })
+test('cousin parent is sister', () => {
+    expect(getParent(grandPa.mom.sister.cousin)).toBe(grandPa.mom.sister)
+})
 
-    test('niece parent is cousin', () => {
-        expect(getParent(grandPa.mom.sister.cousin.niece)).toBe(
-            grandPa.mom.sister.cousin
-        )
-    })
+test('niece parent is cousin', () => {
+    expect(getParent(grandPa.mom.sister.cousin.niece)).toBe(
+        grandPa.mom.sister.cousin
+    )
 })

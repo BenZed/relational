@@ -1,38 +1,8 @@
 import { Each, each } from '@benzed/each'
-import { GenericObject } from '@benzed/types'
 
-import { $$parent, getParent } from './parent'
+import { getParent } from './parent'
 import { Relational } from './relational'
-import { Callable } from '@benzed/callable'
-
-//// Helper ////
-
-type ChildKeys<T> = Exclude<keyof T, typeof $$parent>
-
-/**
- * Any property of a given node that is also a node
- */
-export type Children<T extends Relational> = {
-    [K in ChildKeys<T> as T[K] extends Relational ? K : never]: T[K]
-}
-
-/**
- * Get the children of a node
- */
-export function getChildren<T extends Relational>(node: T): Children<T> {
-    const children: GenericObject = {}
-
-    for (const [key, descriptor] of each.defined.descriptorOf(node)) {
-        if (
-            key !== $$parent &&
-            key !== Callable.context &&
-            Relational.is(descriptor.value)
-        )
-            children[key] = node[key]
-    }
-
-    return children as Children<T>
-}
+import { getChildren } from './children'
 
 export function getRoot(node: Relational): Relational {
     return eachParent(node).toArray().at(-1) ?? node

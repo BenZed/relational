@@ -6,13 +6,13 @@ import {
     eachDescendant,
     eachParent,
     eachSibling,
-    getChildren,
     getRoot
 } from './relations'
 
 import { Traits } from '@benzed/traits'
 
 import Relational from './relational'
+import { getChildren } from './children'
 
 //// Tests ////
 

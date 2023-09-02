@@ -1,4 +1,5 @@
 import { nil, isDefined } from '@benzed/types'
+import { trait } from '@benzed/traits'
 
 import { $$parent, getParent, isRelational, setParent } from './parent'
 
@@ -9,9 +10,10 @@ import {
     eachNode,
     eachParent,
     eachSibling,
-    getChildren,
     getRoot
 } from './relations'
+
+import { $$children, getChildren } from './children'
 
 import { getPath } from './path'
 
@@ -22,8 +24,6 @@ import {
     FindRelational,
     HasRelational
 } from './find'
-
-import { trait } from '@benzed/traits'
 
 //// EsLint ////
 
@@ -44,6 +44,7 @@ import { trait } from '@benzed/traits'
 @trait
 abstract class Relational {
     static readonly parent: typeof $$parent = $$parent
+    static readonly children: typeof $$children = $$children
 
     static readonly is = isRelational
 
@@ -85,12 +86,12 @@ abstract class Relational {
      * Imbue a node with logic for assigning parents on property definition,
      * and unassign them on property deletion.
      */
-    static apply<T extends Relational>(node: T): T {
-        const proxyNode = new Proxy(node, {
-            defineProperty(node, key: keyof Relational, descriptor) {
+    static apply<T extends Relational>(relational: T): T {
+        const proxyRelational = new Proxy(relational, {
+            defineProperty(relational, key: keyof Relational, descriptor) {
                 const { value } = descriptor
 
-                const isParentKey = key === $$parent
+                const isRelationKey = key === $$parent || key === $$children
 
                 // TODO: isValidParent functionality
                 // if a relational is being assigned as
@@ -100,7 +101,7 @@ abstract class Relational {
 
                 // clear parent of node being over-written
                 if (
-                    !isParentKey &&
+                    !isRelationKey &&
                     isRelational(value) &&
                     isDefined(value[$$parent])
                 ) {
@@ -112,30 +113,30 @@ abstract class Relational {
                 }
 
                 // set parent of new node
-                if (!isParentKey && isRelational(value))
-                    setParent(value, proxyNode)
+                if (!isRelationKey && isRelational(value))
+                    setParent(value, proxyRelational)
 
-                return Reflect.defineProperty(node, key, descriptor)
+                return Reflect.defineProperty(relational, key, descriptor)
             },
 
-            deleteProperty(node, key: keyof Relational) {
-                const isParentKey = key === $$parent
-                if (!isParentKey && isRelational(node[key]))
-                    setParent(node[key], nil)
+            deleteProperty(relational, key: keyof Relational) {
+                const isRelationKey = key === $$parent || key === $$children
+                if (!isRelationKey && isRelational(relational[key])) {
+                    setParent(relational[key], nil)
+                }
 
-                return Reflect.deleteProperty(node, key)
+                return Reflect.deleteProperty(relational, key)
             }
         })
 
-        for (const child of eachChild(proxyNode)) setParent(child, proxyNode)
+        for (const child of eachChild(proxyRelational))
+            setParent(child, proxyRelational)
 
-        setParent(proxyNode, nil)
-        return proxyNode
+        setParent(proxyRelational, nil)
+        return proxyRelational
     }
 
     readonly [$$parent]: Relational | nil
-
-    // readonly [$$children]?(): Children<this> TODO
 }
 
 //// Exports ////

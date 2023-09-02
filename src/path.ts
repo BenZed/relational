@@ -2,7 +2,8 @@ import { each } from '@benzed/each'
 
 import type { Relational } from './relational'
 
-import { eachParent, getChildren } from './relations'
+import { eachParent } from './relations'
+import { getChildren } from './children'
 
 //// Types ////
 

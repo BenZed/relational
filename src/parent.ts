@@ -5,6 +5,10 @@ import type { Relational } from './relational'
 
 //// Symbol ////
 
+/**
+ * {@link PropertyKey} where a {@link Relational}'s parent
+ * is
+ */
 export const $$parent = Symbol('parent-node')
 
 //// Helper ////

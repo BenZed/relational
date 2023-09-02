@@ -2,7 +2,7 @@ export * from './relational'
 
 export { RelationalPath } from './path'
 
-export { Children } from './relations'
+export { SubRelational, Children } from './children'
 
 export {
     FindInput,
