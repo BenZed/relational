@@ -6,7 +6,7 @@ import { test, expect, describe } from '@jest/globals'
 import { Find, FindFlag, FindRelational } from './find'
 import { Relational } from './relational'
 import { PublicRelational } from './relationals'
-import { isFunc, isShape } from '@benzed/types'
+import { isFunc, isShapeOf } from '@benzed/types'
 
 //// Setup ////
 
@@ -210,7 +210,7 @@ describe('type signature', () => {
     test('can search for non-relationals', () => {
         @trait
         abstract class Describer {
-            static readonly is = isShape<Describer>({
+            static readonly is = isShapeOf<Describer>({
                 describe: isFunc
             })
 

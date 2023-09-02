@@ -1,4 +1,4 @@
-import { AnyTypeGuard, isIntersection, isKeyed } from '@benzed/types'
+import { AnyTypeGuard, isIntersectionOf, isKeyed } from '@benzed/types'
 
 import { Relational } from '../relational'
 import { AssertRelational, FindRelational, HasRelational } from '../find'
@@ -10,7 +10,7 @@ import { AssertRelational, FindRelational, HasRelational } from '../find'
  */
 class SearchRelational extends Relational {
     static override is: (input: unknown) => input is SearchRelational =
-        isIntersection(
+        isIntersectionOf(
             Relational.is,
             isKeyed('find', 'has', 'assert') as AnyTypeGuard
         )

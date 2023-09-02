@@ -134,6 +134,8 @@ abstract class Relational {
     }
 
     readonly [$$parent]: Relational | nil
+
+    // readonly [$$children]?(): Children<this> TODO
 }
 
 //// Exports ////

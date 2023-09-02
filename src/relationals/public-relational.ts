@@ -1,9 +1,9 @@
 import {
     AnyTypeGuard,
     isFunc,
-    isIntersection,
+    isIntersectionOf,
     isKeyed,
-    isShape,
+    isShapeOf,
     isString,
     nil
 } from '@benzed/types'
@@ -22,9 +22,9 @@ import SearchRelational from './search-relational'
  */
 class PublicRelational extends SearchRelational {
     static override is: (input: unknown) => input is PublicRelational =
-        isIntersection(
+        isIntersectionOf(
             SearchRelational.is,
-            isShape({
+            isShapeOf({
                 name: isString,
                 eachNode: isFunc,
                 eachChild: isFunc,
