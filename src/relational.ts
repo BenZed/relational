@@ -49,8 +49,8 @@ abstract class Relational {
 
     static readonly setParent = setParent
 
-    static readonly getParent = getParent
     static readonly getChildren = getChildren
+    static readonly getParent = getParent
     static readonly getRoot = getRoot
 
     static readonly eachChild = eachChild
@@ -62,19 +62,23 @@ abstract class Relational {
 
     static readonly getPath = getPath
 
-    static find<N extends Relational>(node: N): FindRelational<N> {
-        return new Find(node)
+    static find<T extends object = object>(
+        relational: Relational
+    ): FindRelational<T> {
+        return new Find(relational)
     }
 
-    static has<N extends Relational>(node: N): HasRelational<N> {
-        return new Find(node, FindFlag.Has)
+    static has<T extends object = object>(
+        relational: Relational
+    ): HasRelational<T> {
+        return new Find(relational, FindFlag.Has)
     }
 
-    static assert<N extends Relational>(
-        node: N,
+    static assert<T extends object = object>(
+        relational: Relational,
         error?: string
-    ): AssertRelational<N> {
-        return new Find(node, FindFlag.Assert, error)
+    ): AssertRelational<T> {
+        return new Find(relational, FindFlag.Assert, error)
     }
 
     /**
