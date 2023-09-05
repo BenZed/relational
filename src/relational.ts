@@ -7,7 +7,7 @@ import {
     eachAncestor,
     eachChild,
     eachDescendant,
-    eachNode,
+    eachInHierarchy,
     eachParent,
     eachSibling,
     getRoot
@@ -53,7 +53,7 @@ abstract class Relational {
     static readonly eachSibling = eachSibling
     static readonly eachAncestor = eachAncestor
     static readonly eachDescendent = eachDescendant
-    static readonly eachNode = eachNode
+    static readonly eachNode = eachInHierarchy
 
     static readonly getPath = getPath
 

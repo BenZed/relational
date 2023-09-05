@@ -69,11 +69,9 @@ export function eachDescendant<T extends Relational>(
     })
 }
 
-/**
- * From any node in the tree, iterate through every node in a given
- * node's tree.
- */
-export function eachNode<T extends Relational>(node: T): Each<Relational> {
+export function eachInHierarchy<T extends Relational>(
+    node: T
+): Each<Relational> {
     return each(function* () {
         const root = getRoot(node)
         yield root
