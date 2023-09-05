@@ -109,27 +109,27 @@ describe('inParents', () => {
     })
 })
 
-describe('inNodes', () => {
-    test('inNodes should find the source node', () => {
+describe('inHierarchy', () => {
+    test('inHierarchy should find the source node', () => {
         const find = new Find(you)
-        expect(find.inNodes(grandPa.mom.you)).toBe(grandPa.mom.you)
+        expect(find.inHierarchy(grandPa.mom.you)).toBe(grandPa.mom.you)
     })
 
-    test('inNodes should find a direct child node', () => {
+    test('inHierarchy should find a direct child node', () => {
         const find = new Find<Relational>(you)
-        expect(find.inNodes(grandPa.mom.you.son)).toBe(grandPa.mom.you.son)
+        expect(find.inHierarchy(grandPa.mom.you.son)).toBe(grandPa.mom.you.son)
     })
 
-    test('inNodes should find a deeper descendant node', () => {
+    test('inHierarchy should find a deeper descendant node', () => {
         const find = new Find<Relational>(you)
         expect(
-            find.inNodes(grandPa.mom.you.son.grandDaughter.greatGrandSon)
+            find.inHierarchy(grandPa.mom.you.son.grandDaughter.greatGrandSon)
         ).toBe(grandPa.mom.you.son.grandDaughter.greatGrandSon)
     })
 
-    test('inNodes should not find a node outside of the subtree', () => {
+    test('inHierarchy should not find a node outside of the subtree', () => {
         const find = new Find<Relational>(you)
-        expect(find.inNodes(new Person())).toBe(undefined)
+        expect(find.inHierarchy(new Person())).toBe(undefined)
     })
 })
 
@@ -181,8 +181,8 @@ describe('type signature', () => {
             return Relational.apply(this)
         }
         //
-        get find(): FindRelational {
-            return Relational.find(this)
+        get find(): FindRelational<Entity> {
+            return Relational.find<Entity>(this)
         }
     }
 
@@ -236,8 +236,8 @@ describe('type signature', () => {
         const [describer] = collection.find.all(Describer)
 
         expect(describer).toBeInstanceOf(Describer)
-        expect(describer).toBeInstanceOf(Relational)
-        describer satisfies Describer & Relational
+        expect(describer).toBeInstanceOf(Entity)
+        describer satisfies Describer & Entity
         expect(describer.describe()).toEqual(
             `The path to this ${DescribedEntity.name} is d1`
         )
@@ -254,17 +254,17 @@ describe('type signature', () => {
             d2 = new DuplexEntity()
             s1 = new Entity()
 
-            get findDupes(): FindRelational<DuplexEntity> {
-                return Relational.find(this)
+            get findDupe(): FindRelational<DuplexEntity, DuplexEntity> {
+                return Relational.find<DuplexEntity, DuplexEntity>(this)
             }
         }
 
         const entities = new Entities()
 
-        expect(entities.findDupes(entities.d1)).toBe(entities.d1)
-        expect(entities.findDupes(DuplexEntity)).toBe(entities.d1)
+        expect(entities.findDupe(entities.d1)).toBe(entities.d1)
+        expect(entities.findDupe(DuplexEntity)).toBe(entities.d1)
 
         // @ts-expect-error not allowed
-        entities.findDupes(Entity)
+        entities.findDupe(Entity)
     })
 })

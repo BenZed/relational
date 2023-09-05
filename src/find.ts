@@ -48,7 +48,10 @@ type FindInput<T extends object = object> =
     | AbstractClass<T>
     | StaticTypeGuard<T>
 
-type FindOutput<T extends FindInput<object>> = ToRelational<
+type FindOutput<
+    T extends FindInput<object>,
+    R extends Relational = Relational
+> = ToRelational<
     T extends Guard<infer T1> | Predicate<infer T1>
         ? T1
         : T extends
@@ -57,32 +60,41 @@ type FindOutput<T extends FindInput<object>> = ToRelational<
               | Class<infer T2>
               | AbstractClass<infer T2>
         ? T2
-        : T
+        : T,
+    R
 >
 
-type ToRelational<T extends object> = T extends Relational ? T : T & Relational
+type ToRelational<T extends object, R extends Relational> = T extends R
+    ? T
+    : T & R
 
-interface FindRelational<T extends object = object> {
-    <I extends FindInput<T>>(input?: I): FindOutput<I> | nil
-    get inChildren(): FindRelational<T>
-    get inSiblings(): FindRelational<T>
-    get inDescendants(): FindRelational<T>
-    get inParents(): FindRelational<T>
-    get inAncestors(): FindRelational<T>
-    get inNodes(): FindRelational<T>
-    get or(): FindRelational<T>
-    get all(): FindRelationals<T>
+interface FindRelational<
+    R extends Relational = Relational,
+    F extends object = object
+> {
+    <I extends FindInput<F>>(input?: I): FindOutput<I, R> | nil
+    get inChildren(): FindRelational<R, F>
+    get inSiblings(): FindRelational<R, F>
+    get inDescendants(): FindRelational<R, F>
+    get inParents(): FindRelational<R, F>
+    get inAncestors(): FindRelational<R, F>
+    get inHierarchy(): FindRelational<R, F>
+    get or(): FindRelational<R, F>
+    get all(): FindRelationals<R, F>
 }
 
-interface FindRelationals<T extends object = object> {
-    <I extends FindInput<T>>(input?: I): FindOutput<I>[]
-    get inChildren(): FindRelationals<T>
-    get inSiblings(): FindRelationals<T>
-    get inDescendants(): FindRelationals<T>
-    get inParents(): FindRelationals<T>
-    get inAncestors(): FindRelationals<T>
-    get inNodes(): FindRelationals<T>
-    get or(): FindRelationals<T>
+interface FindRelationals<
+    R extends Relational = Relational,
+    F extends object = object
+> {
+    <I extends FindInput<F>>(input?: I): FindOutput<I, R>[]
+    get inChildren(): FindRelationals<R, F>
+    get inSiblings(): FindRelationals<R, F>
+    get inDescendants(): FindRelationals<R, F>
+    get inParents(): FindRelationals<R, F>
+    get inAncestors(): FindRelationals<R, F>
+    get inHierarchy(): FindRelationals<R, F>
+    get or(): FindRelationals<R, F>
 }
 
 interface HasRelational<T extends object = object> {
@@ -91,37 +103,42 @@ interface HasRelational<T extends object = object> {
     get inSiblings(): HasRelational<T>
     get inDescendants(): HasRelational<T>
     get inParents(): HasRelational<T>
-    get inAncestors(): FindRelationals<T>
-    get inNodes(): FindRelationals<T>
-    get or(): FindRelationals<T>
+    get inAncestors(): HasRelational<T>
+    get inHierarchy(): HasRelational<T>
+    get or(): HasRelational<T>
 }
 
-interface AssertRelational<T extends object = object> {
-    <I extends FindInput<T>>(input: I, error?: string): FindOutput<I>
-    get inChildren(): AssertRelational<T>
-    get inSiblings(): AssertRelational<T>
-    get inDescendants(): AssertRelational<T>
-    get inParents(): AssertRelational<T>
-    get inAncestors(): AssertRelational<T>
-    get inNodes(): AssertRelational<T>
-    get or(): AssertRelational<T>
+interface AssertRelational<
+    R extends Relational = Relational,
+    F extends object = object
+> {
+    <I extends FindInput<F>>(input: I, error?: string): FindOutput<I, R>
+    get inChildren(): AssertRelational<R, F>
+    get inSiblings(): AssertRelational<R, F>
+    get inDescendants(): AssertRelational<R, F>
+    get inParents(): AssertRelational<R, F>
+    get inAncestors(): AssertRelational<R, F>
+    get inHierarchy(): AssertRelational<R, F>
+    get or(): AssertRelational<R, F>
 }
 
 interface FindConstructor {
-    new <T extends object = object>(source: Relational): FindRelational<T>
-    new <T extends object = object>(
+    new <R extends Relational = Relational, F extends object = object>(
+        source: Relational
+    ): FindRelational<R, F>
+    new <R extends Relational = Relational, F extends object = object>(
         source: Relational,
         flag: FindFlag.All
-    ): FindRelationals<T>
-    new <T extends object = object>(
+    ): FindRelationals<R, F>
+    new <F extends object = object>(
         source: Relational,
         flag: FindFlag.Has
-    ): HasRelational<T>
-    new <T extends object = object>(
+    ): HasRelational<F>
+    new <R extends Relational = Relational, F extends object = object>(
         source: Relational,
         flag: FindFlag.Assert,
         error?: string
-    ): AssertRelational<T>
+    ): AssertRelational<R, F>
 }
 
 enum FindFlag {
@@ -132,7 +149,7 @@ enum FindFlag {
 
 //// Implementation ////
 
-const Find = class RelationalFinder extends AbstractCallable<Func> {
+const Find = class Finder extends AbstractCallable<Func> {
     constructor(
         readonly source: Relational,
         private _flag?: FindFlag,
@@ -178,7 +195,7 @@ const Find = class RelationalFinder extends AbstractCallable<Func> {
         return this._incrementEach(eachAncestor(this.source))
     }
 
-    get inNodes(): this {
+    get inHierarchy(): this {
         return this._incrementEach(eachNode(this.source))
     }
 
@@ -204,9 +221,9 @@ const Find = class RelationalFinder extends AbstractCallable<Func> {
             throw new Error(
                 error ??
                     this._error ??
-                    `Node ${getPath(this.source).join(
+                    `${getPath(this.source).join(
                         '/'
-                    )} Could not find node ${toPredicateName(input)}`
+                    )} could not find ${toPredicateName(input)}`
             )
         }
 
