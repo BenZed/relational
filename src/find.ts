@@ -32,113 +32,107 @@ import { getPath } from './path'
     @typescript-eslint/no-explicit-any
 */
 
-//// Helper Types////
+//// Helper Types ////
 
-type Guard<T extends object = object> = TypeGuard<T, object>
+type FindGuard<T extends object = object> = TypeGuard<T, object>
 
-type Predicate<T extends object = object> = (input: T) => boolean
+type FindPredicate<T extends object = object> = (input: T) => boolean
 
 //// Types ////
 
-type FindInput<T extends object = object> =
+type FindInput<T extends object> =
     | T
-    | Guard<T>
-    | Predicate<T>
+    | FindGuard<T>
+    | FindPredicate<T>
     | Class<T>
     | AbstractClass<T>
     | StaticTypeGuard<T>
 
 type FindOutput<
-    T extends FindInput<object>,
-    R extends Relational = Relational
+    S extends Relational,
+    I extends FindInput<object>
 > = ToRelational<
-    T extends Guard<infer T1> | Predicate<infer T1>
+    S,
+    I extends FindGuard<infer T1> | FindPredicate<infer T1>
         ? T1
-        : T extends
+        : I extends
               | Struct<infer T2>
               | AbstractStruct<infer T2>
               | Class<infer T2>
               | AbstractClass<infer T2>
         ? T2
-        : T,
-    R
+        : I
 >
 
-type ToRelational<T extends object, R extends Relational> = T extends R
+type ToRelational<S extends Relational, T extends object> = T extends S
     ? T
-    : T & R
+    : T & S
 
-interface FindRelational<
-    R extends Relational = Relational,
-    F extends object = object
-> {
-    <I extends FindInput<F>>(input?: I): FindOutput<I, R> | nil
-    get inChildren(): FindRelational<R, F>
-    get inSiblings(): FindRelational<R, F>
-    get inDescendants(): FindRelational<R, F>
-    get inParents(): FindRelational<R, F>
-    get inAncestors(): FindRelational<R, F>
-    get inHierarchy(): FindRelational<R, F>
-    get or(): FindRelational<R, F>
-    get all(): FindRelationals<R, F>
+interface Find<S extends Relational = Relational, T extends object = object> {
+    <I extends FindInput<T>>(input?: I): FindOutput<S, I> | nil
+    get inChildren(): Find<S, T>
+    get inSiblings(): Find<S, T>
+    get inDescendants(): Find<S, T>
+    get inParents(): Find<S, T>
+    get inAncestors(): Find<S, T>
+    get inHierarchy(): Find<S, T>
+    get or(): Find<S, T>
+    get all(): FindAll<S, T>
 }
 
-interface FindRelationals<
-    R extends Relational = Relational,
-    F extends object = object
+interface FindAll<
+    S extends Relational = Relational,
+    T extends object = object
 > {
-    <I extends FindInput<F>>(input?: I): FindOutput<I, R>[]
-    get inChildren(): FindRelationals<R, F>
-    get inSiblings(): FindRelationals<R, F>
-    get inDescendants(): FindRelationals<R, F>
-    get inParents(): FindRelationals<R, F>
-    get inAncestors(): FindRelationals<R, F>
-    get inHierarchy(): FindRelationals<R, F>
-    get or(): FindRelationals<R, F>
+    <I extends FindInput<T>>(input?: I): FindOutput<S, I>[]
+    get inChildren(): FindAll<S, T>
+    get inSiblings(): FindAll<S, T>
+    get inDescendants(): FindAll<S, T>
+    get inParents(): FindAll<S, T>
+    get inAncestors(): FindAll<S, T>
+    get inHierarchy(): FindAll<S, T>
+    get or(): FindAll<S, T>
 }
 
-interface HasRelational<T extends object = object> {
+interface Has<T extends object = object> {
     <I extends FindInput<T>>(input: I): boolean
-    get inChildren(): HasRelational<T>
-    get inSiblings(): HasRelational<T>
-    get inDescendants(): HasRelational<T>
-    get inParents(): HasRelational<T>
-    get inAncestors(): HasRelational<T>
-    get inHierarchy(): HasRelational<T>
-    get or(): HasRelational<T>
+    get inChildren(): Has<T>
+    get inSiblings(): Has<T>
+    get inDescendants(): Has<T>
+    get inParents(): Has<T>
+    get inAncestors(): Has<T>
+    get inHierarchy(): Has<T>
+    get or(): Has<T>
 }
 
-interface AssertRelational<
-    R extends Relational = Relational,
-    F extends object = object
-> {
-    <I extends FindInput<F>>(input: I, error?: string): FindOutput<I, R>
-    get inChildren(): AssertRelational<R, F>
-    get inSiblings(): AssertRelational<R, F>
-    get inDescendants(): AssertRelational<R, F>
-    get inParents(): AssertRelational<R, F>
-    get inAncestors(): AssertRelational<R, F>
-    get inHierarchy(): AssertRelational<R, F>
-    get or(): AssertRelational<R, F>
+interface Assert<S extends Relational = Relational, T extends object = object> {
+    <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+    get inChildren(): Assert<S, T>
+    get inSiblings(): Assert<S, T>
+    get inDescendants(): Assert<S, T>
+    get inParents(): Assert<S, T>
+    get inAncestors(): Assert<S, T>
+    get inHierarchy(): Assert<S, T>
+    get or(): Assert<S, T>
 }
 
 interface FindConstructor {
-    new <R extends Relational = Relational, F extends object = object>(
+    new <S extends Relational = Relational, T extends object = object>(
         source: Relational
-    ): FindRelational<R, F>
-    new <R extends Relational = Relational, F extends object = object>(
+    ): Find<S, T>
+    new <S extends Relational = Relational, T extends object = object>(
         source: Relational,
         flag: FindFlag.All
-    ): FindRelationals<R, F>
-    new <F extends object = object>(
+    ): FindAll<S, T>
+    new <T extends object = object>(
         source: Relational,
         flag: FindFlag.Has
-    ): HasRelational<F>
-    new <R extends Relational = Relational, F extends object = object>(
+    ): Has<T>
+    new <S extends Relational = Relational, T extends object = object>(
         source: Relational,
         flag: FindFlag.Assert,
         error?: string
-    ): AssertRelational<R, F>
+    ): Assert<S, T>
 }
 
 enum FindFlag {
@@ -149,7 +143,7 @@ enum FindFlag {
 
 //// Implementation ////
 
-const Find = class Finder extends AbstractCallable<Func> {
+const Find = class extends AbstractCallable<Func> {
     constructor(
         readonly source: Relational,
         private _flag?: FindFlag,
@@ -201,7 +195,7 @@ const Find = class Finder extends AbstractCallable<Func> {
 
     //// Helper ////
 
-    find(input?: FindInput, error?: string): unknown {
+    find(input?: FindInput<object>, error?: string): unknown {
         const predicate = toPredicate(input)
 
         const found = new Set<Relational>()
@@ -250,7 +244,7 @@ const Find = class Finder extends AbstractCallable<Func> {
 
 //// Helper ////
 
-function toPredicate(input?: FindInput): Guard | Predicate {
+function toPredicate(input?: FindInput<object>): FindGuard | FindPredicate {
     if (!input) return pass
 
     if (hasStaticTypeGuard(input)) return input.is
@@ -268,7 +262,7 @@ function toPredicate(input?: FindInput): Guard | Predicate {
     return input
 }
 
-function toPredicateName(input?: FindInput): string {
+function toPredicateName(input?: FindInput<object>): string {
     let name = input && 'name' in input ? input.name : ''
 
     // assume type guard with convention isModuleName
@@ -282,16 +276,13 @@ function toPredicateName(input?: FindInput): string {
 
 //// Exports ////
 
-export default Find
-
 export {
-    Find,
-    FindFlag,
     FindConstructor,
+    FindFlag,
     FindInput,
     FindOutput,
-    FindRelational,
-    FindRelationals,
-    HasRelational,
-    AssertRelational
+    Find,
+    FindAll,
+    Has,
+    Assert
 }

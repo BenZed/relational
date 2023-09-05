@@ -1,7 +1,6 @@
 import { AnyTypeGuard, isIntersectionOf, isKeyed } from '@benzed/types'
 
 import { Relational } from '../relational'
-import { AssertRelational, FindRelational, HasRelational } from '../find'
 
 //// Main ////
 
@@ -15,15 +14,15 @@ class SearchRelational extends Relational {
             isKeyed('find', 'has', 'assert') as AnyTypeGuard
         )
 
-    get find(): FindRelational<this> {
+    get find() {
         return Relational.find(this)
     }
 
-    get has(): HasRelational<this> {
+    get has() {
         return Relational.has(this)
     }
 
-    get assert(): AssertRelational<this> {
+    get assert() {
         return Relational.assert(this)
     }
 }

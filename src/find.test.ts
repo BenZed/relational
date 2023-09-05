@@ -3,7 +3,7 @@ import { Traits, trait } from '@benzed/traits'
 
 import { test, expect, describe } from '@jest/globals'
 
-import { Find, FindFlag, FindRelational } from './find'
+import { Find, FindFlag } from './find'
 import { Relational } from './relational'
 import { PublicRelational } from './relationals'
 import { isFunc, isShapeOf } from '@benzed/types'
@@ -159,9 +159,7 @@ describe('Assert', () => {
 
     test('assert should throw error when node not found', () => {
         const find = new Find(you, FindFlag.Assert)
-        expect(() => find.inChildren(fail)).toThrow(
-            'Node mom/you Could not find node'
-        )
+        expect(() => find.inChildren(fail)).toThrow('mom/you could not find')
     })
 
     test('assert should allow custom error message', () => {
@@ -181,7 +179,7 @@ describe('type signature', () => {
             return Relational.apply(this)
         }
         //
-        get find(): FindRelational<Entity> {
+        get find(): Find<Entity> {
             return Relational.find<Entity>(this)
         }
     }
@@ -254,7 +252,7 @@ describe('type signature', () => {
             d2 = new DuplexEntity()
             s1 = new Entity()
 
-            get findDupe(): FindRelational<DuplexEntity, DuplexEntity> {
+            get findDupe(): Find<DuplexEntity, DuplexEntity> {
                 return Relational.find<DuplexEntity, DuplexEntity>(this)
             }
         }
