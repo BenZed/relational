@@ -68,41 +68,47 @@ type ToRelational<S extends Relational, T extends object> = T extends S
     ? T
     : T & S
 
-interface FindTerms<T extends object = object> {
-    get inChildren(): this
-    get inSiblings(): this
-    get inDescendants(): this
-    inDescendantsFiltered(input: FindInput<T>): this
-    inDescendantsExcept(input: FindInput<T>): this
+interface RelationalTerms<T extends object, R> {
+    get children(): R
+    get siblings(): R
+    get descendants(): R
+    descendantsFiltered(input: FindInput<T>): R
+    descendantsExcept(input: FindInput<T>): R
 
-    get inParents(): this
-    get inAncestors(): this
-    get inHierarchy(): this
-    inHierarchyFiltered(input: FindInput<T>): this
-    inHierarchyExcept(input: FindInput<T>): this
-
-    get or(): this
+    get parents(): R
+    get ancestors(): R
+    get hierarchy(): R
+    hierarchyFiltered(input: FindInput<T>): R
+    hierarchyExcept(input: FindInput<T>): R
 }
 
-interface Find<S extends Relational = Relational, T extends object = object>
-    extends FindTerms<T> {
-    <I extends FindInput<T>>(input?: I): FindOutput<S, I> | nil
+interface _FindTerms<T extends object> {
+    get in(): In<T, this>
+}
 
+interface In<T extends object, R> extends RelationalTerms<T, Or<T, R>> {}
+
+type Or<T extends object, R> = R & { get or(): In<T, R> }
+
+interface Find<S extends Relational = Relational, T extends object = object>
+    extends _FindTerms<T> {
+    <I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
+    get in(): In<T, this>
     get all(): FindAll<S, T>
 }
 
 interface FindAll<S extends Relational = Relational, T extends object = object>
-    extends FindTerms<T> {
-    <I extends FindInput<T>>(input?: I): FindOutput<S, I>[]
-}
-
-interface Has<T extends object = object> extends FindTerms<T> {
-    <I extends FindInput<T>>(input: I): boolean
+    extends _FindTerms<T> {
+    <I extends FindInput<T>>(input: I): FindOutput<S, I>[]
 }
 
 interface Assert<S extends Relational = Relational, T extends object = object>
-    extends FindTerms<T> {
+    extends _FindTerms<T> {
     <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+}
+
+interface Has<T extends object = object> extends _FindTerms<T> {
+    <I extends FindInput<T>>(input: I): boolean
 }
 
 interface FindConstructor {
@@ -148,6 +154,10 @@ const Find = class extends AbstractCallable<Func> {
         return this.find
     }
 
+    get in() {
+        return this
+    }
+
     get or() {
         this._mergeOnIncrement = true
         return this
@@ -158,47 +168,47 @@ const Find = class extends AbstractCallable<Func> {
         return this
     }
 
-    get inChildren() {
+    get children() {
         return this._incrementEach(eachChild(this.source))
     }
 
-    get inSiblings() {
+    get siblings() {
         return this._incrementEach(eachSibling(this.source))
     }
 
-    get inDescendants() {
+    get descendants() {
         return this._incrementEach(eachDescendant(this.source))
     }
 
-    inDescendantsFiltered(input: FindInput<object>) {
+    descendantsFiltered(input: FindInput<object>) {
         const filter = toFindPredicate(input)
         return this._incrementEach(eachDescendant(this.source, filter))
     }
 
-    inDescendantsExcept(input: FindInput<object>) {
+    descendantsExcept(input: FindInput<object>) {
         const filter = toFindPredicate(input)
         const except = (x: object) => !filter(x)
         return this._incrementEach(eachDescendant(this.source, except))
     }
 
-    get inParents() {
+    get parents() {
         return this._incrementEach(eachParent(this.source))
     }
 
-    get inAncestors() {
+    get ancestors() {
         return this._incrementEach(eachAncestor(this.source))
     }
 
-    get inHierarchy() {
+    get hierarchy() {
         return this._incrementEach(eachInHierarchy(this.source))
     }
 
-    inHierarchyFiltered(input: FindInput<object>) {
+    hierarchyFiltered(input: FindInput<object>) {
         const filter = toFindPredicate(input)
         return this._incrementEach(eachInHierarchy(this.source, filter))
     }
 
-    inHierarchyExcept(input: FindInput<object>) {
+    hierarchyExcept(input: FindInput<object>) {
         const filter = toFindPredicate(input)
         const except = (x: object) => !filter(x)
         return this._incrementEach(eachInHierarchy(this.source, except))
@@ -291,7 +301,6 @@ export {
     FindInput,
     FindOutput,
     Find,
-    FindAll,
     Has,
     Assert
 }
