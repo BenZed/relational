@@ -71,6 +71,21 @@ describe('inDescendants', () => {
             )
         ).toEqual([you.son.grandDaughter, you.son.grandDaughter.greatGrandSon])
     })
+
+    test('inDescendantsExcept', () => {
+        const find = new Find(grandPa)
+        expect(find.all.inDescendantsExcept(grandPa.mom)()).toEqual([
+            grandPa.mom,
+            grandPa.uncle
+        ])
+    })
+
+    test('inDescendantsFiltered', () => {
+        const find = new Find(grandPa)
+        expect(
+            find.all.inDescendantsFiltered(i => i !== grandPa.mom)()
+        ).toEqual([grandPa.mom, grandPa.uncle])
+    })
 })
 
 describe('inChildren', () => {
@@ -134,14 +149,14 @@ describe('inHierarchy', () => {
 })
 
 describe('or', () => {
-    test('find.orinParents() returns grandPa.mom.you or grandPa.uncle', () => {
+    test('find.or.inParents() returns grandPa.mom.you or grandPa.uncle', () => {
         const find = new Find<Relational>(you)
         const result = find.inChildren.or.inSiblings(grandPa.mom.sister)
 
         expect(result).toBe(grandPa.mom.sister)
     })
 
-    test('find.orinAncestors() returns grandPa', () => {
+    test('find.or.inAncestors() returns grandPa', () => {
         const find = new Find<Relational>(you)
         const result = find.inChildren.or.inAncestors(grandPa)
 

@@ -21,7 +21,7 @@ import {
     eachAncestor,
     eachChild,
     eachDescendant,
-    eachNode,
+    eachInHierarchy,
     eachParent,
     eachSibling
 } from './relations'
@@ -68,52 +68,41 @@ type ToRelational<S extends Relational, T extends object> = T extends S
     ? T
     : T & S
 
-interface Find<S extends Relational = Relational, T extends object = object> {
+interface FindTerms<T extends object = object> {
+    get inChildren(): this
+    get inSiblings(): this
+    get inDescendants(): this
+    inDescendantsFiltered(input: FindInput<T>): this
+    inDescendantsExcept(input: FindInput<T>): this
+
+    get inParents(): this
+    get inAncestors(): this
+    get inHierarchy(): this
+    inHierarchyFiltered(input: FindInput<T>): this
+    inHierarchyExcept(input: FindInput<T>): this
+
+    get or(): this
+}
+
+interface Find<S extends Relational = Relational, T extends object = object>
+    extends FindTerms<T> {
     <I extends FindInput<T>>(input?: I): FindOutput<S, I> | nil
-    get inChildren(): Find<S, T>
-    get inSiblings(): Find<S, T>
-    get inDescendants(): Find<S, T>
-    get inParents(): Find<S, T>
-    get inAncestors(): Find<S, T>
-    get inHierarchy(): Find<S, T>
-    get or(): Find<S, T>
+
     get all(): FindAll<S, T>
 }
 
-interface FindAll<
-    S extends Relational = Relational,
-    T extends object = object
-> {
+interface FindAll<S extends Relational = Relational, T extends object = object>
+    extends FindTerms<T> {
     <I extends FindInput<T>>(input?: I): FindOutput<S, I>[]
-    get inChildren(): FindAll<S, T>
-    get inSiblings(): FindAll<S, T>
-    get inDescendants(): FindAll<S, T>
-    get inParents(): FindAll<S, T>
-    get inAncestors(): FindAll<S, T>
-    get inHierarchy(): FindAll<S, T>
-    get or(): FindAll<S, T>
 }
 
-interface Has<T extends object = object> {
+interface Has<T extends object = object> extends FindTerms<T> {
     <I extends FindInput<T>>(input: I): boolean
-    get inChildren(): Has<T>
-    get inSiblings(): Has<T>
-    get inDescendants(): Has<T>
-    get inParents(): Has<T>
-    get inAncestors(): Has<T>
-    get inHierarchy(): Has<T>
-    get or(): Has<T>
 }
 
-interface Assert<S extends Relational = Relational, T extends object = object> {
+interface Assert<S extends Relational = Relational, T extends object = object>
+    extends FindTerms<T> {
     <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
-    get inChildren(): Assert<S, T>
-    get inSiblings(): Assert<S, T>
-    get inDescendants(): Assert<S, T>
-    get inParents(): Assert<S, T>
-    get inAncestors(): Assert<S, T>
-    get inHierarchy(): Assert<S, T>
-    get or(): Assert<S, T>
 }
 
 interface FindConstructor {
@@ -159,44 +148,66 @@ const Find = class extends AbstractCallable<Func> {
         return this.find
     }
 
-    get or(): this {
+    get or() {
         this._mergeOnIncrement = true
         return this
     }
 
-    get all(): this {
+    get all() {
         this._flag = FindFlag.All
         return this
     }
 
-    get inChildren(): this {
+    get inChildren() {
         return this._incrementEach(eachChild(this.source))
     }
 
-    get inSiblings(): this {
+    get inSiblings() {
         return this._incrementEach(eachSibling(this.source))
     }
 
-    get inDescendants(): this {
+    get inDescendants() {
         return this._incrementEach(eachDescendant(this.source))
     }
 
-    get inParents(): this {
+    inDescendantsFiltered(input: FindInput<object>) {
+        const filter = toFindPredicate(input)
+        return this._incrementEach(eachDescendant(this.source, filter))
+    }
+
+    inDescendantsExcept(input: FindInput<object>) {
+        const filter = toFindPredicate(input)
+        const except = (x: object) => !filter(x)
+        return this._incrementEach(eachDescendant(this.source, except))
+    }
+
+    get inParents() {
         return this._incrementEach(eachParent(this.source))
     }
 
-    get inAncestors(): this {
+    get inAncestors() {
         return this._incrementEach(eachAncestor(this.source))
     }
 
-    get inHierarchy(): this {
-        return this._incrementEach(eachNode(this.source))
+    get inHierarchy() {
+        return this._incrementEach(eachInHierarchy(this.source))
+    }
+
+    inHierarchyFiltered(input: FindInput<object>) {
+        const filter = toFindPredicate(input)
+        return this._incrementEach(eachInHierarchy(this.source, filter))
+    }
+
+    inHierarchyExcept(input: FindInput<object>) {
+        const filter = toFindPredicate(input)
+        const except = (x: object) => !filter(x)
+        return this._incrementEach(eachInHierarchy(this.source, except))
     }
 
     //// Helper ////
 
     find(input?: FindInput<object>, error?: string): unknown {
-        const predicate = toPredicate(input)
+        const findPredicate = input ? toFindPredicate(input) : pass
 
         const found = new Set<Relational>()
         const { _flag: flag } = this
@@ -204,7 +215,7 @@ const Find = class extends AbstractCallable<Func> {
         iterators: for (const node of this._each) {
             if (found.has(node)) continue
 
-            const pass = predicate(node)
+            const pass = findPredicate(node)
             if (pass) found.add(Relational.is(pass) ? pass : node)
 
             if (pass && flag !== FindFlag.All) break iterators
@@ -217,7 +228,7 @@ const Find = class extends AbstractCallable<Func> {
                     this._error ??
                     `${getPath(this.source).join(
                         '/'
-                    )} could not find ${toPredicateName(input)}`
+                    )} could not find ${toFindPredicateName(input)}`
             )
         }
 
@@ -244,25 +255,21 @@ const Find = class extends AbstractCallable<Func> {
 
 //// Helper ////
 
-function toPredicate(input?: FindInput<object>): FindGuard | FindPredicate {
-    if (!input) return pass
+function toFindPredicate<T extends object>(i: FindInput<T>): FindPredicate<T> {
+    if (hasStaticTypeGuard(i)) return i.is
 
-    if (hasStaticTypeGuard(input)) return input.is
-
-    if (!isFunc(input) || Relational.is(input)) {
-        return Comparable.is(input)
-            ? other => input[Comparable.equals](other)
-            : other => Object.is(input, other)
+    if (!isFunc(i) || Relational.is(i)) {
+        return Comparable.is(i)
+            ? x => i[Comparable.equals](x)
+            : x => Object.is(i, x)
     }
 
-    if (isClass(input)) {
-        return i => i instanceof input
-    }
+    if (isClass(i)) return x => x instanceof i
 
-    return input
+    return i
 }
 
-function toPredicateName(input?: FindInput<object>): string {
+function toFindPredicateName<T extends object>(input?: FindInput<T>): string {
     let name = input && 'name' in input ? input.name : ''
 
     // assume type guard with convention isModuleName
@@ -279,6 +286,8 @@ function toPredicateName(input?: FindInput<object>): string {
 export {
     FindConstructor,
     FindFlag,
+    FindPredicate,
+    toFindPredicate,
     FindInput,
     FindOutput,
     Find,
