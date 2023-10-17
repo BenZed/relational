@@ -3,8 +3,8 @@ import { Traits, trait } from '@benzed/traits'
 
 import { test, expect, describe } from '@jest/globals'
 
-import { Find } from './find'
-import { Relational } from './relational'
+import { Find } from './types'
+import { Relational } from '../relational'
 import { isFunc, isShapeOf } from '@benzed/types'
 
 //// Setup ////
@@ -206,19 +206,25 @@ describe(`${you.assert}`, () => {
     test(`${you.assert} ${parent.name}`, () => {
         expect(() => you.assert.parent()).not.toThrow()
         expect(() => you.assert.parent(grandPa)).toThrow(
-            `could not find parent`
+            `could not find GrandPa parent`
         )
         expect(() => grandPa.assert.parent()).toThrow('could not find parent')
     })
 
     test(`${you.assert} ${root.name}`, () => {
-        expect(() => you.assert.root(mom)).toThrow('could not find root')
+        expect(() => you.assert.root(mom)).toThrow('could not find Mom root')
         expect(you.assert.root()).toEqual(grandPa)
     })
 
     test(`${you.assert.in.children} fail`, () => {
         expect(() => you.assert.in.children(fail)).toThrow(
             'mom/you could not find in children'
+        )
+    })
+
+    test(`${you.assert.in.children} GrandPa`, () => {
+        expect(() => you.assert.in.children(grandPa)).toThrow(
+            'mom/you could not find GrandPa in children'
         )
     })
 
@@ -311,8 +317,8 @@ describe('type signature', () => {
             d2 = new DuplexEntity()
             s1 = new Entity()
 
-            get findDupe(): Find<DuplexEntity, DuplexEntity> {
-                return Relational.find<DuplexEntity, DuplexEntity>(this as any)
+            get findDupe(): Find<Entities, DuplexEntity> {
+                return Relational.find<Entities, DuplexEntity>(this)
             }
         }
 
