@@ -1,6 +1,5 @@
-import { Func, isTruthy as isNotEmpty } from '@benzed/types'
+import { Func, isTruthy as isNotEmpty, isObject, isString } from '@benzed/types'
 
-import { pass } from '@benzed/util'
 import { each } from '@benzed/each'
 import { AbstractCallable, Callable } from '@benzed/callable'
 
@@ -17,8 +16,8 @@ import {
 
 import { getPath } from '../path'
 import { getParent } from '../parent'
-import { FindInput } from './types'
 import { toFindPredicate, toFindPredicateName } from './predicate'
+import { FindOneOrMore, FindInput } from './types'
 
 //// Flags ////
 
@@ -88,33 +87,38 @@ export class Find extends AbstractCallable<Func> {
         return this
     }
 
-    descendantsFiltered(input: FindInput<object>) {
-        const filter = toFindPredicate(input)
+    descendantsFiltered(...terms: FindOneOrMore) {
+        const filter = toFindPredicate(...terms)
+
         const eachDescendantFiltered = eachDescendant(this.source, filter)
 
         this._updateIterables(eachDescendantFiltered)
-        this._terms.push('descendants', 'filtered', toFindPredicateName(input))
+        this._terms.push(
+            'descendants',
+            'filtered',
+            toFindPredicateName(...terms)
+        )
 
         return this
     }
 
-    descendantsExcept(input: FindInput<object>) {
-        const filter = toFindPredicate(input)
+    descendantsExcept(...terms: FindOneOrMore) {
+        const filter = toFindPredicate(...terms)
         const eachDescendantExcept = eachDescendant(
             this.source,
             (o: object) => !filter(o)
         )
         this._updateIterables(eachDescendantExcept)
-        this._terms.push('descendants', 'except', toFindPredicateName(input))
+        this._terms.push('descendants', 'except', toFindPredicateName(...terms))
 
         return this
     }
 
-    parent(input?: FindInput<object>, error?: string): unknown {
+    parent(...args: (FindInput | string)[]): unknown {
         const parent = getParent(this.source)
         this._updateIterables(parent ? [parent] : [])
         this._terms.push('parent')
-        return this.find(input, error)
+        return this.find(...args)
     }
 
     get parents() {
@@ -123,10 +127,10 @@ export class Find extends AbstractCallable<Func> {
         return this
     }
 
-    root(input?: FindInput<object>, error?: string): unknown {
+    root(...args: (FindInput | string)[]): unknown {
         this._updateIterables([getRoot(this.source)])
         this._terms.push('root')
-        return this.find(input, error)
+        return this.find(...args)
     }
 
     get ancestors() {
@@ -141,38 +145,42 @@ export class Find extends AbstractCallable<Func> {
         return this
     }
 
-    hierarchyFiltered(input: FindInput<object>) {
-        const filter = toFindPredicate(input)
+    hierarchyFiltered(...terms: FindOneOrMore) {
+        const filter = toFindPredicate(...terms)
         const eachInHierarchyFiltered = eachInHierarchy(this.source, filter)
         this._updateIterables(eachInHierarchyFiltered)
-        this._terms.push('hierarchy', 'filtered', toFindPredicateName(input))
+        this._terms.push('hierarchy', 'filtered', toFindPredicateName(terms))
         return this
     }
 
-    hierarchyExcept(input: FindInput<object>) {
-        const filter = toFindPredicate(input)
+    hierarchyExcept(...terms: FindOneOrMore) {
+        const filter = toFindPredicate(...terms)
         const eachInHierarchyExcept = eachInHierarchy(
             this.source,
             (o: object) => !filter(o)
         )
         this._updateIterables(eachInHierarchyExcept)
-        this._terms.push('hierarchy', 'except', toFindPredicateName(input))
+        this._terms.push('hierarchy', 'except', toFindPredicateName(terms))
 
         return this
     }
 
     //// Helper ////
 
-    each(input?: FindInput<object>) {
+    each(...terms: FindInput[]) {
         this._terms.push('each')
         this._flag = FindOutputFlag.All
-        return each(this._iterate(input))
+
+        return each(this._iterate(terms))
     }
 
-    find(input?: FindInput<object>, error?: string): unknown {
-        this._terms.unshift(toFindPredicateName(input))
+    find(...args: (FindInput | string)[]): unknown {
+        const terms = args.filter<FindInput>(isObject)
+        const error = args.find(isString)
 
-        const found = [...this._iterate(input)]
+        this._terms.unshift(toFindPredicateName(...terms))
+
+        const found = [...this._iterate(terms)]
 
         const { _flag: flag } = this
         if (flag === FindOutputFlag.All) return found
@@ -210,8 +218,8 @@ export class Find extends AbstractCallable<Func> {
         this._iterables.push(iterable)
     }
 
-    private *_iterate(input?: FindInput<object>) {
-        const findPredicate = input ? toFindPredicate(input) : pass
+    private *_iterate(terms: FindInput[]) {
+        const findPredicate = toFindPredicate(...terms)
 
         const yielded = new Set<Relational>()
 

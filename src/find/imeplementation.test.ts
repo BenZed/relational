@@ -1,9 +1,9 @@
 import { fail } from '@benzed/util'
 import { Traits, trait } from '@benzed/traits'
 
-import { test, expect, describe } from '@jest/globals'
+import { test, expect, describe, beforeEach } from '@jest/globals'
 
-import { Find } from './types'
+import { Assert, Find, Has } from './types'
 import { Relational } from '../relational'
 import { isFunc, isShapeOf } from '@benzed/types'
 
@@ -15,15 +15,15 @@ class Person extends Traits(Relational) {
         return Relational.apply(this)
     }
 
-    get find() {
+    get find(): Find<Person> {
         return Relational.find(this)
     }
 
-    get assert() {
+    get assert(): Assert<Person> {
         return Relational.assert(this)
     }
 
-    get has() {
+    get has(): Has {
         return Relational.has(this)
     }
 
@@ -245,7 +245,11 @@ describe('type signature', () => {
         }
         //
         get find(): Find<Entity> {
-            return Relational.find<Entity>(this)
+            return Relational.find(this)
+        }
+
+        get assert(): Assert<Entity> {
+            return Relational.assert(this)
         }
     }
 
@@ -270,64 +274,92 @@ describe('type signature', () => {
         expect(entity).toBeInstanceOf(Entity)
     })
 
+    @trait
+    abstract class Describer {
+        static readonly is = isShapeOf<Describer>({
+            describe: isFunc
+        })
+
+        abstract describe(): string
+    }
+
+    @trait
+    abstract class Alerter {
+        static readonly is = isShapeOf<Alerter>({
+            alert: isFunc
+        })
+
+        abstract alert(): void
+    }
+
+    class DEntity extends Entity implements Describer {
+        describe(): string {
+            return `The path to this ${
+                this.constructor.name
+            } is ${Relational.getPath(this)}`
+        }
+    }
+
+    class AEntity extends Entity implements Alerter {
+        alert(): void {
+            throw new Error('Not Yet Implemented')
+        }
+    }
+
+    class DAEntity extends DEntity implements Alerter {
+        alerted = false
+        alert(): void {
+            this.alerted = true
+        }
+    }
+
+    class Collection extends Entity {
+        d1 = new DEntity()
+        d2 = new DEntity()
+        d3 = new DAEntity()
+        a1 = new AEntity()
+        e1 = new Entity()
+    }
+
+    let collection: Collection
+    beforeEach(() => {
+        collection = new Collection()
+    })
+
     test('can search for non-relationals', () => {
-        @trait
-        abstract class Describer {
-            static readonly is = isShapeOf<Describer>({
-                describe: isFunc
-            })
+        const describers = collection.find.all(Describer)
+        expect(describers).toEqual([
+            collection.d1,
+            collection.d2,
+            collection.d3
+        ])
 
-            abstract describe(): string
-        }
+        const alerters = collection.find.all(Alerter)
+        expect(alerters).toEqual([collection.d3, collection.a1])
+    })
 
-        class DescribedEntity extends Traits.add(Entity, Describer) {
-            describe(): string {
-                return `The path to this ${
-                    this.constructor.name
-                } is ${Relational.getPath(this)}`
-            }
-        }
-
-        class Collection extends Entity {
-            d1 = new DescribedEntity()
-            d2 = new DescribedEntity()
-            e1 = new Entity()
-        }
-
-        const collection = new Collection()
-
-        const [describer] = collection.find.all(Describer)
-
+    test('is type safe', () => {
+        const describer = collection.assert(Describer)
         expect(describer).toBeInstanceOf(Describer)
         expect(describer).toBeInstanceOf(Entity)
         describer satisfies Describer & Entity
         expect(describer.describe()).toEqual(
-            `The path to this ${DescribedEntity.name} is d1`
+            `The path to this ${DEntity.name} is d1`
         )
+
+        const [alerter] = collection.find.all(Alerter)
+        expect(alerter).toBeInstanceOf(Alerter)
+        expect(alerter).toBeInstanceOf(Entity)
+        alerter satisfies Entity & Alerter
     })
 
-    test('optional discrimination', () => {
-        class DuplexEntity extends Entity {
-            left = new Entity()
-            right = new Entity()
-        }
+    test('can search for intersections of multiple non-relationals', () => {
+        const alertDescribers = collection.find.all(Describer, Alerter)
+        expect(alertDescribers).toEqual([collection.d3])
 
-        class Entities extends Entity {
-            d1 = new DuplexEntity()
-            d2 = new DuplexEntity()
-            s1 = new Entity()
-
-            get findDupe(): Find<Entities, DuplexEntity> {
-                return Relational.find<Entities, DuplexEntity>(this)
-            }
-        }
-
-        const entities = new Entities()
-
-        expect(entities.findDupe(entities.d1)).toBe(entities.d1)
-        expect(entities.findDupe(DuplexEntity)).toBe(entities.d1)
-
-        // @ts-expect-error not allowed
-        entities.findDupe(Entity)
+        const alertDescriber = collection.assert(Describer, Alerter)
+        expect(alertDescriber).toBeInstanceOf(Entity)
+        expect(alertDescriber).toBeInstanceOf(Describer)
+        expect(alertDescriber).toBeInstanceOf(Alerter)
     })
 })

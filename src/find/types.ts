@@ -14,9 +14,40 @@ import Relational from '../relational'
 import { FindGuard, FindPredicate } from './predicate'
 import { Find as _Find, FindOutputFlag } from './implementation'
 
+//// Helper ////
+
+type _FindOutput<I extends FindInput> = I extends
+    | FindGuard<infer T1>
+    | FindPredicate<infer T1>
+    ? T1
+    : I extends
+          | Struct<infer T2>
+          | AbstractStruct<infer T2>
+          | Class<infer T2>
+          | AbstractClass<infer T2>
+    ? T2
+    : I
+
+type _FindOutputIntersection<F extends FindOneOrMore> = F extends [
+    infer F1,
+    ...infer Fr
+]
+    ? F1 extends FindInput
+        ? Fr extends FindOneOrMore
+            ? _FindOutput<F1> & _FindOutputIntersection<Fr>
+            : _FindOutput<F1>
+        : never
+    : never
+
+type _AsRelational<S extends Relational, F extends Findable> = F extends S
+    ? F
+    : S & F
+
 //// Input/Output ////
 
-type FindInput<T extends object> =
+type Findable = object
+
+type FindInput<T extends Findable = Findable> =
     | T
     | FindGuard<T>
     | FindPredicate<T>
@@ -24,119 +55,127 @@ type FindInput<T extends object> =
     | AbstractClass<T>
     | StaticTypeGuard<T>
 
-type FindOutput<
-    S extends Relational,
-    I extends FindInput<object>
-> = AsRelational<
-    S,
-    I extends FindGuard<infer T1> | FindPredicate<infer T1>
-        ? T1
-        : I extends
-              | Struct<infer T2>
-              | AbstractStruct<infer T2>
-              | Class<infer T2>
-              | AbstractClass<infer T2>
-        ? T2
-        : I
->
+type FindOneOrMore<T extends Findable = Findable> = [
+    FindInput<T>,
+    ...FindInput<T>[]
+]
 
-type AsRelational<S extends Relational, T extends object> = T extends S
-    ? T
-    : T & S
+type Found<
+    S extends Relational = Relational,
+    F extends FindOneOrMore = FindOneOrMore
+> = _AsRelational<S, _FindOutputIntersection<F>>
 
 //// Find ////
 
-interface In<T extends object, R> {
-    get children(): Or<T, R>
-    get siblings(): Or<T, R>
-    get descendants(): Or<T, R>
-    descendantsFiltered(input: FindInput<T>): Or<T, R>
-    descendantsExcept(input: FindInput<T>): Or<T, R>
+interface In<F extends Findable, RETURN> {
+    get children(): Or<F, RETURN>
+    get siblings(): Or<F, RETURN>
+    get descendants(): Or<F, RETURN>
+    descendantsFiltered(...terms: FindOneOrMore<F>): Or<F, RETURN>
+    descendantsExcept(...terms: FindOneOrMore<F>): Or<F, RETURN>
 
-    get parents(): Or<T, R>
-    get ancestors(): Or<T, R>
-    get hierarchy(): Or<T, R>
-    hierarchyFiltered(input: FindInput<T>): Or<T, R>
-    hierarchyExcept(input: FindInput<T>): Or<T, R>
+    get parents(): Or<F, RETURN>
+    get ancestors(): Or<F, RETURN>
+    get hierarchy(): Or<F, RETURN>
+    hierarchyFiltered(...terms: FindOneOrMore<F>): Or<F, RETURN>
+    hierarchyExcept(...terms: FindOneOrMore<F>): Or<F, RETURN>
 }
 
-type Or<T extends object, R> = R & { get or(): In<T, R> }
+type Or<F extends Findable, RETURN> = RETURN & { get or(): In<F, RETURN> }
 
-interface FindIn<S extends Relational = Relational, T extends object = object> {
-    <I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
+interface FindIn<
+    S extends Relational = Relational,
+    F extends Findable = Findable
+> {
+    <T extends FindOneOrMore<F>>(...terms: T): Found<S, T> | nil
     all(): S[]
-    all<I extends FindInput<T>>(input: I): FindOutput<S, I>[]
+    all<T extends FindOneOrMore<F>>(...terms: T): Found<S, T>[]
     each(): Each<S>
-    each<I extends FindInput<T>>(input: I): Each<FindOutput<S, I>>
+    each<T extends FindOneOrMore<F>>(...terms: T): Each<Found<S, T>>
 }
 
-interface Find<S extends Relational = Relational, T extends object = object>
-    extends FindIn<S, T> {
-    get in(): In<T, FindIn<S, T>>
+interface Find<S extends Relational = Relational, F extends Findable = Findable>
+    extends FindIn<S, F> {
+    get in(): In<F, FindIn<S, F>>
 
     parent(): S | nil
-    parent<I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
+    parent<T extends FindOneOrMore<F>>(...terms: T): Found<S, T> | nil
     root(): S | nil
-    root<I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
+    root<T extends FindOneOrMore<F>>(...terms: T): Found<S, T> | nil
 }
 
 //// Assert ////
 
-interface Assert<S extends Relational = Relational, T extends object = object> {
-    <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
-
-    get in(): In<T, AssertIn<S, T>>
-
-    parent(error?: string): S
-    parent<I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
-    root(error?: string): S
-    root<I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
-}
-
 interface AssertIn<
     S extends Relational = Relational,
-    T extends object = object
+    F extends Findable = Findable
 > {
-    <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+    <T extends FindOneOrMore<F>>(
+        ...terms: T | [...T, error?: string]
+    ): Found<S, T>
+}
+
+interface Assert<
+    S extends Relational = Relational,
+    F extends Findable = Findable
+> {
+    <T extends FindOneOrMore<F>>(
+        ...terms: T | [...T, error?: string]
+    ): Found<S, T>
+
+    get in(): In<F, AssertIn<S, F>>
+
+    parent(error?: string): S
+    parent<T extends FindOneOrMore<F>>(
+        ...terms: T | [...T, error?: string]
+    ): Found<S, T>
+
+    root(error?: string): S
+    root<T extends FindOneOrMore<F>>(
+        ...terms: T | [...T, error?: string]
+    ): Found<S, T>
 }
 
 //// Has ////
 
-interface Has<T extends object = object> {
-    <I extends FindInput<T>>(input: I): boolean
-    get in(): In<T, HasIn<T>>
-
-    parent(): boolean
-    parent<I extends FindInput<T>>(input: I): boolean
-    root(): boolean
-    root<I extends FindInput<T>>(input: I): boolean
+interface HasIn<F extends Findable = Findable> {
+    <T extends FindOneOrMore<F>>(...terms: T): boolean
 }
 
-interface HasIn<T extends object = object> {
-    <I extends FindInput<T>>(input: I): boolean
+interface Has<F extends Findable = Findable> {
+    <T extends FindOneOrMore<F>>(...terms: T): boolean
+    get in(): In<F, HasIn<F>>
+
+    parent(): boolean
+    parent<T extends FindOneOrMore<F>>(...terms: T): boolean
+
+    root(): boolean
+    root<T extends FindOneOrMore<F>>(...terms: T): boolean
 }
 
 //// Static Types ////
 
 interface FindConstructor {
-    new <S extends Relational, T extends object = object>(source: S): Find<S, T>
+    new <S extends Relational, F extends Findable = Findable>(
+        source: S
+    ): Find<S, F>
 
-    new <T extends object = object>(
+    new <F extends Findable = Findable>(
         source: Relational,
         flag: FindOutputFlag.Has
-    ): Has<T>
+    ): Has<F>
 
-    new <S extends Relational, T extends object = object>(
+    new <S extends Relational, F extends Findable = Findable>(
         source: S,
         flag: FindOutputFlag.Assert,
         error?: string
-    ): Assert<S, T>
+    ): Assert<S, F>
 }
 
 //// Apply Implementation ////
 
-const Find = _Find as FindConstructor
+const Find = _Find as unknown as FindConstructor
 
 //// Exports ////
 
-export { FindInput, FindOutput, Find, Has, Assert }
+export { Findable, FindInput, FindOneOrMore, Found, Find, Has, Assert }

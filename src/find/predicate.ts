@@ -1,8 +1,15 @@
-import { isFunc, TypeGuard, hasStaticTypeGuard, isClass } from '@benzed/types'
+import {
+    isFunc,
+    TypeGuard,
+    hasStaticTypeGuard,
+    isClass,
+    isIntersectionOf
+} from '@benzed/types'
 import { equals, Comparable } from '@benzed/immutable'
 
 import { Relational } from '../relational'
-import { FindInput } from './types'
+import { FindInput, Findable } from './types'
+import { pass } from '@benzed/util'
 
 //// Helper Types ////
 
@@ -12,29 +19,38 @@ export type FindPredicate<T extends object = object> = (input: T) => boolean
 
 //// Helper ////
 
-export function toFindPredicate<T extends object>(
-    find: FindInput<T>
-): FindPredicate<T> {
-    if (hasStaticTypeGuard(find)) return find.is
+export function toFindPredicate<F extends Findable>(
+    ...terms: FindInput<F>[]
+): FindPredicate<F> {
+    const predicates = terms.map<FindPredicate<F>>(term => {
+        if (hasStaticTypeGuard(term)) return term.is
 
-    if (!isFunc(find) || Relational.is(find)) {
-        return Comparable.is(find)
-            ? o => equals(find, o)
-            : o => Object.is(find, o)
-    }
+        if (!isFunc(term) || Relational.is(term)) {
+            return Comparable.is(term)
+                ? o => equals(term, o)
+                : o => Object.is(term, o)
+        }
 
-    if (isClass(find)) return o => o instanceof find
+        if (isClass(term)) return o => o instanceof term
 
-    return find
+        return term
+    })
+
+    return predicates.length <= 1
+        ? predicates.at(0) ?? pass
+        : isIntersectionOf(...(predicates as FindGuard[]))
 }
 
-export function toFindPredicateName<T extends object>(
-    input?: FindInput<T>
+export function toFindPredicateName<T extends Findable>(
+    ...terms: FindInput<T>[]
 ): string {
-    let name = input && 'name' in input ? input.name : ''
+    const names = terms.map(term => {
+        let name = term && 'name' in term ? term.name : ''
 
-    // assume type guard with convention isRelationalName
-    if (/^is/.test(name)) name = name.replace(/^is/, '')
+        // assume type guard with convention isRelationalName
+        if (/^is/.test(name)) name = name.replace(/^is/, '')
 
-    return name
+        return name
+    })
+    return names.join('&')
 }

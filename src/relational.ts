@@ -17,7 +17,7 @@ import { $$children, getChildren } from './children'
 
 import { getPath } from './path'
 
-import { FindOutputFlag as Flag, Find, Assert, Has } from './find'
+import { FindOutputFlag as Flag, Find, Assert, Has, Findable } from './find'
 
 //// EsLint ////
 
@@ -57,22 +57,20 @@ abstract class Relational {
 
     static readonly getPath = getPath
 
-    static find<R extends Relational, T extends object = object>(
+    static find<R extends Relational, F extends Findable = Findable>(
         source: R
-    ): Find<R, T> {
+    ): Find<R, F> {
         return new Find(source)
     }
 
-    static has<R extends Relational, T extends object = object>(
-        source: R
-    ): Has<T> {
+    static has<F extends Findable = Findable>(source: Relational): Has<F> {
         return new Find(source, Flag.Has)
     }
 
-    static assert<R extends Relational, T extends object = object>(
+    static assert<R extends Relational, F extends Findable = Findable>(
         source: R,
         error?: string
-    ): Assert<R, T> {
+    ): Assert<R, F> {
         return new Find(source, Flag.Assert, error)
     }
 
