@@ -1,6 +1,7 @@
 import {
     Func,
     isFunc,
+    isTruthy as isNotEmpty,
     Class,
     AbstractClass,
     nil,
@@ -11,10 +12,11 @@ import {
     StaticTypeGuard,
     isClass
 } from '@benzed/types'
+
 import { pass } from '@benzed/util'
 import { Each, each } from '@benzed/each'
-import { AbstractCallable, Callable } from '@benzed/callable'
 import { Comparable } from '@benzed/immutable'
+import { AbstractCallable, Callable } from '@benzed/callable'
 
 import { Relational } from './relational'
 import {
@@ -23,10 +25,12 @@ import {
     eachDescendant,
     eachInHierarchy,
     eachParent,
-    eachSibling
+    eachSibling,
+    getRoot
 } from './relations'
 
 import { getPath } from './path'
+import { getParent } from './parent'
 
 /* eslint-disable
     @typescript-eslint/no-explicit-any
@@ -68,63 +72,85 @@ type ToRelational<S extends Relational, T extends object> = T extends S
     ? T
     : T & S
 
-interface RelationalTerms<T extends object, R> {
-    get children(): R
-    get siblings(): R
-    get descendants(): R
-    descendantsFiltered(input: FindInput<T>): R
-    descendantsExcept(input: FindInput<T>): R
+interface In<T extends object, R> {
+    get children(): Or<T, R>
+    get siblings(): Or<T, R>
+    get descendants(): Or<T, R>
+    descendantsFiltered(input: FindInput<T>): Or<T, R>
+    descendantsExcept(input: FindInput<T>): Or<T, R>
 
-    get parents(): R
-    get ancestors(): R
-    get hierarchy(): R
-    hierarchyFiltered(input: FindInput<T>): R
-    hierarchyExcept(input: FindInput<T>): R
+    get parents(): Or<T, R>
+    get ancestors(): Or<T, R>
+    get hierarchy(): Or<T, R>
+    hierarchyFiltered(input: FindInput<T>): Or<T, R>
+    hierarchyExcept(input: FindInput<T>): Or<T, R>
 }
 
-interface _FindTerms<T extends object> {
-    get in(): In<T, this>
-}
-
-interface In<T extends object, R> extends RelationalTerms<T, Or<T, R>> {}
+// interface In<T extends object, R> extends RelationalTerms<T, Or<T, R>> {}
 
 type Or<T extends object, R> = R & { get or(): In<T, R> }
 
-interface Find<S extends Relational = Relational, T extends object = object>
-    extends _FindTerms<T> {
+interface FindIn<S extends Relational = Relational, T extends object = object> {
     <I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
-    get in(): In<T, this>
-    get all(): FindAll<S, T>
+    all(): S[]
+    all<I extends FindInput<T>>(input: I): FindOutput<S, I>[]
+    each(): Each<S>
+    each<I extends FindInput<T>>(input: I): Each<FindOutput<S, I>>
 }
 
-interface FindAll<S extends Relational = Relational, T extends object = object>
-    extends _FindTerms<T> {
-    <I extends FindInput<T>>(input: I): FindOutput<S, I>[]
+interface Find<S extends Relational = Relational, T extends object = object>
+    extends FindIn<S, T> {
+    get in(): In<T, FindIn<S, T>>
+
+    parent(): S | nil
+    parent<I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
+    root(): S | nil
+    root<I extends FindInput<T>>(input: I): FindOutput<S, I> | nil
 }
 
-interface Assert<S extends Relational = Relational, T extends object = object>
-    extends _FindTerms<T> {
+interface Assert<S extends Relational = Relational, T extends object = object> {
+    <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+
+    get in(): In<T, AssertIn<S, T>>
+
+    parent(error?: string): S
+    parent<I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+    root(error?: string): S
+    root<I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
+}
+
+interface AssertIn<
+    S extends Relational = Relational,
+    T extends object = object
+> {
     <I extends FindInput<T>>(input: I, error?: string): FindOutput<S, I>
 }
 
-interface Has<T extends object = object> extends _FindTerms<T> {
+interface Has<T extends object = object> {
+    <I extends FindInput<T>>(input: I): boolean
+    get in(): In<T, HasIn<T>>
+
+    parent(): boolean
+    parent<I extends FindInput<T>>(input: I): boolean
+    root(): boolean
+    root<I extends FindInput<T>>(input: I): boolean
+}
+
+interface HasIn<T extends object = object> {
     <I extends FindInput<T>>(input: I): boolean
 }
 
+//
 interface FindConstructor {
     new <S extends Relational = Relational, T extends object = object>(
-        source: Relational
+        source: S
     ): Find<S, T>
-    new <S extends Relational = Relational, T extends object = object>(
-        source: Relational,
-        flag: FindFlag.All
-    ): FindAll<S, T>
     new <T extends object = object>(
         source: Relational,
         flag: FindFlag.Has
     ): Has<T>
     new <S extends Relational = Relational, T extends object = object>(
-        source: Relational,
+        source: S,
         flag: FindFlag.Assert,
         error?: string
     ): Assert<S, T>
@@ -145,7 +171,15 @@ const Find = class extends AbstractCallable<Func> {
         private readonly _error?: string
     ) {
         super()
-        this._each = eachChild(source)
+        this._iterables = [eachChild(source)]
+    }
+
+    override get name() {
+        return this._flag === FindFlag.Assert
+            ? 'assert'
+            : this._flag === FindFlag.Has
+            ? 'has'
+            : 'find'
     }
 
     //// Interface ////
@@ -155,90 +189,135 @@ const Find = class extends AbstractCallable<Func> {
     }
 
     get in() {
+        this._terms.push('in')
         return this
     }
 
     get or() {
-        this._mergeOnIncrement = true
+        this._terms.push('or')
         return this
     }
 
     get all() {
+        this._terms.push('all')
         this._flag = FindFlag.All
         return this
     }
 
     get children() {
-        return this._incrementEach(eachChild(this.source))
+        this._updateIterables(eachChild(this.source))
+        this._terms.push('children')
+        return this
     }
 
     get siblings() {
-        return this._incrementEach(eachSibling(this.source))
+        this._updateIterables(eachSibling(this.source))
+        this._terms.push('siblings')
+        return this
     }
 
     get descendants() {
-        return this._incrementEach(eachDescendant(this.source))
+        this._updateIterables(eachDescendant(this.source))
+        this._terms.push('descendants')
+        return this
     }
 
     descendantsFiltered(input: FindInput<object>) {
         const filter = toFindPredicate(input)
-        return this._incrementEach(eachDescendant(this.source, filter))
+        const eachDescendantFiltered = eachDescendant(this.source, filter)
+
+        this._updateIterables(eachDescendantFiltered)
+        this._terms.push('descendants', 'filtered', toFindPredicateName(input))
+
+        return this
     }
 
     descendantsExcept(input: FindInput<object>) {
         const filter = toFindPredicate(input)
-        const except = (x: object) => !filter(x)
-        return this._incrementEach(eachDescendant(this.source, except))
+        const eachDescendantExcept = eachDescendant(
+            this.source,
+            (o: object) => !filter(o)
+        )
+        this._updateIterables(eachDescendantExcept)
+        this._terms.push('descendants', 'except', toFindPredicateName(input))
+
+        return this
+    }
+
+    parent(input?: FindInput<object>, error?: string): unknown {
+        const parent = getParent(this.source)
+        this._updateIterables(parent ? [parent] : [])
+        this._terms.push('parent')
+        return this.find(input, error)
     }
 
     get parents() {
-        return this._incrementEach(eachParent(this.source))
+        this._updateIterables(eachParent(this.source))
+        this._terms.push('parents')
+        return this
+    }
+
+    root(input?: FindInput<object>, error?: string): unknown {
+        this._updateIterables([getRoot(this.source)])
+        this._terms.push('root')
+        return this.find(input, error)
     }
 
     get ancestors() {
-        return this._incrementEach(eachAncestor(this.source))
+        this._updateIterables(eachAncestor(this.source))
+        this._terms.push('ancestors')
+        return this
     }
 
     get hierarchy() {
-        return this._incrementEach(eachInHierarchy(this.source))
+        this._updateIterables(eachInHierarchy(this.source))
+        this._terms.push('hierarchy')
+        return this
     }
 
     hierarchyFiltered(input: FindInput<object>) {
         const filter = toFindPredicate(input)
-        return this._incrementEach(eachInHierarchy(this.source, filter))
+        const eachInHierarchyFiltered = eachInHierarchy(this.source, filter)
+        this._updateIterables(eachInHierarchyFiltered)
+        this._terms.push('hierarchy', 'filtered', toFindPredicateName(input))
+        return this
     }
 
     hierarchyExcept(input: FindInput<object>) {
         const filter = toFindPredicate(input)
-        const except = (x: object) => !filter(x)
-        return this._incrementEach(eachInHierarchy(this.source, except))
+        const eachInHierarchyExcept = eachInHierarchy(
+            this.source,
+            (o: object) => !filter(o)
+        )
+        this._updateIterables(eachInHierarchyExcept)
+        this._terms.push('hierarchy', 'except', toFindPredicateName(input))
+
+        return this
     }
 
     //// Helper ////
 
-    find(input?: FindInput<object>, error?: string): unknown {
-        const findPredicate = input ? toFindPredicate(input) : pass
+    each(input?: FindInput<object>) {
+        this._terms.push('each')
+        this._flag = FindFlag.All
+        return each(this._iterate(input))
+    }
 
-        const found = new Set<Relational>()
+    find(input?: FindInput<object>, error?: string): unknown {
+        this._terms.unshift(toFindPredicateName(input))
+
+        const found = [...this._iterate(input)]
+
         const { _flag: flag } = this
 
-        iterators: for (const node of this._each) {
-            if (found.has(node)) continue
-
-            const pass = findPredicate(node)
-            if (pass) found.add(Relational.is(pass) ? pass : node)
-
-            if (pass && flag !== FindFlag.All) break iterators
-        }
-
-        const has = found.size > 0
+        const has = found.length > 0
         if (flag === FindFlag.Assert && !has) {
+            const path = getPath(this.source).join('/')
+            const description = this.toString().replace('assert', 'find')
             throw new Error(
                 error ??
                     this._error ??
-                    `${getPath(this.source).join(
-                        '/'
-                    )} could not find ${toFindPredicateName(input)}`
+                    `${path} could not ${description}`.trim()
             )
         }
 
@@ -250,45 +329,69 @@ const Find = class extends AbstractCallable<Func> {
         return first
     }
 
-    //// Iterators ////
+    override toString() {
+        return `${this.name} ${this._terms.filter(isNotEmpty).join(' ')}`
+    }
 
-    private _each: Each<Relational>
-    private _mergeOnIncrement = false
-    private _incrementEach(...iterators: Iterable<Relational>[]): this {
-        this._each = this._mergeOnIncrement
-            ? each(this._each, ...iterators)
-            : each(...iterators)
+    //// Iterable ////
 
-        return this
+    private _terms: string[] = []
+
+    private _iterables: Iterable<Relational>[] = []
+    private _updateIterables(iterable: Iterable<Relational>) {
+        const updateAsUnion = this._terms.at(-1) === 'or'
+        if (!updateAsUnion) this._iterables.length = 0
+
+        this._iterables.push(iterable)
+    }
+
+    private *_iterate(input?: FindInput<object>) {
+        const findPredicate = input ? toFindPredicate(input) : pass
+
+        const yielded = new Set<Relational>()
+
+        const { _iterables: iterables, _flag: flag } = this
+
+        for (const iterable of iterables) {
+            for (const relational of iterable) {
+                if (yielded.has(relational) || !findPredicate(relational))
+                    continue
+
+                yield relational
+                yielded.add(relational)
+
+                if (flag !== FindFlag.All) break
+            }
+        }
     }
 } as FindConstructor
 
 //// Helper ////
 
-function toFindPredicate<T extends object>(i: FindInput<T>): FindPredicate<T> {
-    if (hasStaticTypeGuard(i)) return i.is
+function toFindPredicate<T extends object>(
+    find: FindInput<T>
+): FindPredicate<T> {
+    if (hasStaticTypeGuard(find)) return find.is
 
-    if (!isFunc(i) || Relational.is(i)) {
-        return Comparable.is(i)
-            ? x => i[Comparable.equals](x)
-            : x => Object.is(i, x)
+    if (!isFunc(find) || Relational.is(find)) {
+        return Comparable.is(find)
+            ? x => find[Comparable.equals](x)
+            : x => Object.is(find, x)
     }
 
-    if (isClass(i)) return x => x instanceof i
+    if (isClass(find)) return x => x instanceof find
 
-    return i
+    return find
 }
 
 function toFindPredicateName<T extends object>(input?: FindInput<T>): string {
     let name = input && 'name' in input ? input.name : ''
 
-    // assume type guard with convention isModuleName
-    if (name.startsWith('is')) name = name.slice(0, 2)
+    // assume type guard with convention isRelationalName
+    if (name.startsWith('is')) name = name.replace(/^is/, '')
 
     // assume anonymous type guard
-    if (!name) return Relational.name
-
-    return name
+    return ''
 }
 
 //// Exports ////

@@ -3,17 +3,36 @@ import { Traits, trait } from '@benzed/traits'
 
 import { test, expect, describe } from '@jest/globals'
 
-import { Find, FindFlag } from './find'
+import { Find } from './find'
 import { Relational } from './relational'
-import { PublicRelational } from './relationals'
 import { isFunc, isShapeOf } from '@benzed/types'
 
 //// Setup ////
 
-class Person extends Traits(PublicRelational) {
+class Person extends Traits(Relational) {
     constructor() {
         super()
-        return PublicRelational.apply(this)
+        return Relational.apply(this)
+    }
+
+    get find() {
+        return Relational.find(this)
+    }
+
+    get assert() {
+        return Relational.assert(this)
+    }
+
+    get has() {
+        return Relational.has(this)
+    }
+
+    get name() {
+        return this.constructor.name
+    }
+
+    override toString() {
+        return this.name
     }
 }
 
@@ -31,7 +50,7 @@ const grandPa = new (class GrandPa extends Person {
 
         readonly sister = new (class Sister extends Person {
             readonly cousin = new (class Cousin extends Person {
-                readonly niece = new (class Niece extends Person {})()
+                readonly grandNiece = new (class Niece extends Person {})()
             })()
         })()
     })()
@@ -41,148 +60,173 @@ const grandPa = new (class GrandPa extends Person {
 
 //// Tests ////
 
-const you = grandPa.mom.you
+const { mom, uncle } = grandPa
+const { you, sister } = mom
+const { cousin } = sister
+const { grandNiece } = cousin
+const { son } = you
+const { grandDaughter } = son
+const { greatGrandSon } = grandDaughter
 
-describe('in.descendants', () => {
-    test('should find Son', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.descendants(you.son)).toBe(you.son)
+describe(`${you.find.in.descendants}`, () => {
+    test(`${you.find.in.descendants}`, () => {
+        expect(you.find.in.descendants(son)).toBe(you.son)
     })
 
-    test('should find GrandDaughter', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.descendants(you.son.grandDaughter)).toBe(
-            you.son.grandDaughter
-        )
+    test(`${you.find.in.descendants} ${grandDaughter}`, () => {
+        expect(you.find.in.descendants(grandDaughter)).toBe(grandDaughter)
     })
 
-    test('should return undefined for Uncle', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.descendants(grandPa.uncle)).toBeUndefined()
+    test(`${you.find.in.descendants} ${uncle}`, () => {
+        expect(you.find.in.descendants(uncle)).toBeUndefined()
     })
 
-    test('in.descendants.all', () => {
-        const find = new Find(you)
-        expect(
-            find.in.descendants.all(
-                (p: unknown) =>
-                    PublicRelational.is(p) &&
-                    p.constructor.name.includes('Grand')
-            )
-        ).toEqual([you.son.grandDaughter, you.son.grandDaughter.greatGrandSon])
-    })
-
-    test('in.descendantsFiltered', () => {
-        const find = new Find(grandPa)
-        expect(
-            find.in.descendantsFiltered(i => i !== grandPa.mom).all(Person)
-        ).toEqual([grandPa.mom, grandPa.uncle])
-    })
-
-    test('in.descendantsExcept', () => {
-        const find = new Find(grandPa)
-        expect(find.in.descendantsExcept(grandPa.mom).all(Person)).toEqual([
-            grandPa.mom,
-            grandPa.uncle
+    test(`${you.find.in.descendants.all}`, () => {
+        expect(you.find.in.descendants.all()).toEqual([
+            son,
+            grandDaughter,
+            greatGrandSon
         ])
     })
-})
 
-describe('in.children', () => {
-    test('Find "son" in children of "you"', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.children(grandPa.mom.you.son)).toEqual(
-            grandPa.mom.you.son
-        )
-    })
-
-    test('Find "uncle" not in children of "you"', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.children(grandPa.uncle)).toBe(undefined)
-    })
-})
-
-describe('in.parents', () => {
-    test('returns grandPa from mom', () => {
-        const find = new Find<Relational>(grandPa.mom)
-        expect(find.in.parents(grandPa)).toBe(grandPa)
-    })
-
-    test('returns undefined when no parents are found', () => {
-        const find = new Find(grandPa.mom)
-        expect(find.in.parents(grandPa.mom)).toBe(undefined)
-    })
-
-    test('returns mom from you', () => {
-        const find = new Find<Relational>(grandPa.mom.you)
-        expect(find.in.parents(grandPa.mom)).toBe(grandPa.mom)
-    })
-
-    test('returns undefined when the root relational is reached', () => {
-        const find = new Find(grandPa)
-        expect(find.in.parents(grandPa)).toBe(undefined)
-    })
-})
-
-describe('in.hierarchy', () => {
-    test('inHierarchy should find the source relational', () => {
-        const find = new Find(you)
-        expect(find.in.hierarchy(grandPa.mom.you)).toBe(grandPa.mom.you)
-    })
-
-    test('in.hierarchy should find a direct child relational', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.hierarchy(grandPa.mom.you.son)).toBe(grandPa.mom.you.son)
-    })
-
-    test('in.hierarchy should find a deeper descendant relational', () => {
-        const find = new Find<Relational>(you)
+    test(`${you.find.in.descendants.all} predicate`, () => {
         expect(
-            find.in.hierarchy(grandPa.mom.you.son.grandDaughter.greatGrandSon)
-        ).toBe(grandPa.mom.you.son.grandDaughter.greatGrandSon)
+            you.find.in.descendants.all((p: Person) => /grand/i.test(p.name))
+        ).toEqual([grandDaughter, greatGrandSon])
     })
 
-    test('in.hierarchy should not find a relational outside of the subtree', () => {
-        const find = new Find<Relational>(you)
-        expect(find.in.hierarchy(new Person())).toBe(undefined)
-    })
-})
-
-describe('or', () => {
-    test('find.in.children.or.siblings returns grandPa.mom.you or grandPa.uncle', () => {
-        const find = new Find<Relational>(you)
-        const result = find.in.children.or.siblings(grandPa.mom.sister)
-
-        expect(result).toBe(grandPa.mom.sister)
+    test(`${you.find.in.descendantsFiltered(Person)}`, () => {
+        const find = new Find(grandPa)
+        expect(find.in.descendantsFiltered(i => i !== mom).all()).toEqual([
+            mom,
+            uncle
+        ])
     })
 
-    test('find.in.children.or.ancestors returns grandPa', () => {
-        const find = new Find<Relational>(you)
-        const result = find.in.children.or.ancestors(grandPa)
-
-        expect(result).toBe(grandPa)
+    test(`${you.find.in.descendantsExcept(mom)}`, () => {
+        const find = new Find(grandPa)
+        expect(find.in.descendantsExcept(mom).all()).toEqual([mom, uncle])
     })
 })
 
-describe('Assert', () => {
-    test('assert should return found relational', () => {
-        const assert = new Find<Relational>(you, FindFlag.Assert)
-        const result = assert.in.descendants.or.siblings(you.son)
-
-        expect(result).toBe(you.son)
+describe(`${you.find.in.children}`, () => {
+    test(`${you.find.in.children(son)}`, () => {
+        expect(you.find.in.children(son)).toEqual(son)
     })
 
-    test('assert should throw error when relational not found', () => {
-        const assert = new Find(you, FindFlag.Assert)
-        expect(() => assert.in.children(fail)).toThrow('mom/you could not find')
+    test(`${you.find.in.children} ${uncle}`, () => {
+        expect(you.find.in.children(uncle)).toBe(undefined)
+    })
+})
+
+describe(`${you.find.in.parents}`, () => {
+    test(`${mom.find.in.parents} ${grandPa}`, () => {
+        expect(mom.find.in.parents(grandPa)).toBe(grandPa)
     })
 
-    test('assert should allow custom error message', () => {
-        const customErrorMessage = 'Node not found'
-        const assert = new Find(you, FindFlag.Assert)
-        expect(() => assert.in.descendants(fail, customErrorMessage)).toThrow(
-            customErrorMessage
+    test(`${mom.find.in.parents} ${you}`, () => {
+        expect(mom.find.in.parents(you)).toBe(undefined)
+    })
+
+    test(`${you.find.in.parents} ${mom}`, () => {
+        expect(you.find.in.parents(mom)).toBe(mom)
+    })
+
+    test(`${grandPa.find.in.parents} ${grandPa}`, () => {
+        expect(grandPa.find.in.parents(grandPa)).toBe(undefined)
+    })
+
+    test(`${you.find.in.parents.all}`, () => {
+        expect(you.find.in.parents.all()).toEqual([mom, grandPa])
+    })
+
+    test(`${you.find.in.parents.all} predicate`, () => {
+        expect(
+            you.find.in.parents.all((p: Person) => p.name === 'Mom')
+        ).toEqual([mom])
+    })
+})
+
+describe(`${you.find.in.hierarchy}`, () => {
+    test(`${you.find.in.hierarchy} ${you}`, () => {
+        expect(you.find.in.hierarchy(you)).toBe(you)
+    })
+
+    test(`${you.find.in.hierarchy} ${son}`, () => {
+        expect(you.find.in.hierarchy(son)).toBe(son)
+    })
+
+    test(`${you.find.in.hierarchy} ${greatGrandSon}`, () => {
+        expect(you.find.in.hierarchy(greatGrandSon)).toBe(greatGrandSon)
+    })
+
+    test(`${you.find.in.hierarchy} ${grandNiece}`, () => {
+        expect(you.find.in.hierarchy(grandNiece)).toBe(grandNiece)
+    })
+
+    test(`${you.find.in.hierarchy} ${Person.name} outside hierarchy`, () => {
+        // was this test really necessary
+        expect(you.find.in.hierarchy(new Person())).toBe(undefined)
+    })
+})
+
+describe(`${you.find.in} or`, () => {
+    test(`${you.find.in.children.or.siblings} ${sister}`, () => {
+        expect(you.find.in.children.or.siblings(sister)).toBe(sister)
+    })
+
+    test(`${you.find.in.children.or.siblings} ${grandPa}`, () => {
+        expect(you.find.in.children.or.siblings(grandPa)).toBe(undefined)
+    })
+
+    test(`${you.find.in.children.or.ancestors} ${grandPa}`, () => {
+        expect(you.find.in.children.or.ancestors(grandPa)).toBe(grandPa)
+    })
+
+    test(`${you.find.in.siblings.or.ancestors} ${son}`, () => {
+        expect(you.find.in.siblings.or.ancestors(son)).toBe(undefined)
+    })
+
+    test(`${you.find.in.parents.or.children} ${uncle}`, () => {
+        expect(you.find.in.parents.or.children(uncle)).toBe(undefined)
+    })
+})
+
+describe(`${you.assert}`, () => {
+    const { root, parent } = you.assert
+
+    test(`${you.assert.in.descendants.or.siblings} ${son}`, () => {
+        expect(you.assert.in.descendants.or.siblings(son)).toBe(son)
+    })
+
+    test(`${you.assert} fail`, () => {
+        expect(() => you.assert(fail)).toThrow('mom/you could not find')
+    })
+
+    test(`${you.assert} ${parent.name}`, () => {
+        expect(() => you.assert.parent()).not.toThrow()
+        expect(() => you.assert.parent(grandPa)).toThrow(
+            `could not find parent`
         )
+        expect(() => grandPa.assert.parent()).toThrow('could not find parent')
+    })
+
+    test(`${you.assert} ${root.name}`, () => {
+        expect(() => you.assert.root(mom)).toThrow('could not find root')
+        expect(you.assert.root()).toEqual(grandPa)
+    })
+
+    test(`${you.assert.in.children} fail`, () => {
+        expect(() => you.assert.in.children(fail)).toThrow(
+            'mom/you could not find in children'
+        )
+    })
+
+    test(`${you.assert.in.descendants} custom message`, () => {
+        const customErrorMessage = 'Bad find'
+        expect(() =>
+            you.assert.in.descendants(fail, customErrorMessage)
+        ).toThrow(customErrorMessage)
     })
 })
 
@@ -268,7 +312,7 @@ describe('type signature', () => {
             s1 = new Entity()
 
             get findDupe(): Find<DuplexEntity, DuplexEntity> {
-                return Relational.find<DuplexEntity, DuplexEntity>(this)
+                return Relational.find<DuplexEntity, DuplexEntity>(this as any)
             }
         }
 

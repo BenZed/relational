@@ -57,8 +57,8 @@ abstract class Relational {
 
     static readonly getPath = getPath
 
-    static find<R extends Relational = Relational, T extends object = object>(
-        relational: Relational
+    static find<R extends Relational, T extends object = object>(
+        relational: R
     ): Find<R, T> {
         return new Find(relational)
     }
@@ -67,8 +67,8 @@ abstract class Relational {
         return new Find<T>(relational, FindFlag.Has)
     }
 
-    static assert<R extends Relational = Relational, T extends object = object>(
-        relational: Relational,
+    static assert<R extends Relational, T extends object = object>(
+        relational: R,
         error?: string
     ): Assert<R, T> {
         return new Find(relational, FindFlag.Assert, error)
