@@ -17,7 +17,7 @@ import { $$children, getChildren } from './children'
 
 import { getPath } from './path'
 
-import { Find, Assert, FindFlag, Has } from './find'
+import { FindOutputFlag as Flag, Find, Assert, Has, Findable } from './find'
 
 //// EsLint ////
 
@@ -28,12 +28,12 @@ import { Find, Assert, FindFlag, Has } from './find'
 //// Main ////
 
 /**
- * The Relational trait creates knowledge of relations between objects,
+ * The {@link Relational} trait creates knowledge of relations between objects,
  * allowing them to make assertions based on their relationship structure,
- * or existence of other nodes in their relationship tree.
+ * or existence of other {@link Relationals} in their hierarchy.
  *
- * A relational will automatically assign itself as the parent of any
- * properties that are defined in it that are also nodes.
+ * A {@link Relational}s will automatically assign itself as the parent of any
+ * defined properties in it that are also {@link Relational}s.
  */
 @trait
 abstract class Relational {
@@ -43,10 +43,10 @@ abstract class Relational {
     static readonly is = isRelational
 
     static readonly setParent = setParent
-
-    static readonly getChildren = getChildren
     static readonly getParent = getParent
+
     static readonly getRoot = getRoot
+    static readonly getChildren = getChildren
 
     static readonly eachChild = eachChild
     static readonly eachParent = eachParent
@@ -57,21 +57,21 @@ abstract class Relational {
 
     static readonly getPath = getPath
 
-    static find<R extends Relational = Relational, T extends object = object>(
-        relational: Relational
-    ): Find<R, T> {
-        return new Find(relational)
+    static find<R extends Relational, F extends Findable = Findable>(
+        source: R
+    ): Find<R, F> {
+        return new Find(source)
     }
 
-    static has<T extends object = object>(relational: Relational): Has<T> {
-        return new Find<T>(relational, FindFlag.Has)
+    static has<F extends Findable = Findable>(source: Relational): Has<F> {
+        return new Find(source, Flag.Has)
     }
 
-    static assert<R extends Relational = Relational, T extends object = object>(
-        relational: Relational,
+    static assert<R extends Relational, F extends Findable = Findable>(
+        source: R,
         error?: string
-    ): Assert<R, T> {
-        return new Find(relational, FindFlag.Assert, error)
+    ): Assert<R, F> {
+        return new Find(source, Flag.Assert, error)
     }
 
     /**
